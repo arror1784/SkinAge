@@ -68,6 +68,25 @@ class AlignmentResult:
 # Core functions
 # ---------------------------------------------------------------------------
 
+import urllib.request
+
+_TASK_MODEL_PATH = _PROJECT_ROOT / "outputs" / "models" / "mediapipe" / "face_landmarker.task"
+_TASK_MODEL_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task"
+
+
+def _ensure_task_model() -> str:
+    """Ensure the MediaPipe Tasks face landmarker model is present, downloading if missing."""
+    if not _TASK_MODEL_PATH.is_file():
+        _TASK_MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            logger.info("Downloading face_landmarker.task from Google Storage...")
+            urllib.request.urlretrieve(_TASK_MODEL_URL, str(_TASK_MODEL_PATH))
+            logger.info("face_landmarker.task successfully downloaded.")
+        except Exception as exc:
+            logger.warning("Could not auto-download face_landmarker.task: %s", exc)
+    return str(_TASK_MODEL_PATH)
+
+
 def _get_face_detection_class():
     try:
         from mediapipe.python.solutions import face_detection
@@ -85,7 +104,7 @@ def _get_face_detection_class():
         return fd.FaceDetection
     except Exception:
         pass
-    raise ImportError("Could not import MediaPipe FaceDetection.")
+    return None
 
 
 def _get_face_mesh_class():
@@ -105,14 +124,14 @@ def _get_face_mesh_class():
         return fm.FaceMesh
     except Exception:
         pass
-    raise ImportError("Could not import MediaPipe FaceMesh.")
+    return None
 
 
 def detect_face(image: np.ndarray) -> Optional[FaceDetection]:
     """Detect the primary face in an image using MediaPipe Face Detection.
 
     When multiple faces are found the one with the largest bounding-box area
-    is returned.  Returns ``None`` when no face meets the threshold.
+    is returned. Returns None when no face meets the threshold.
     """
     if image is None or image.size == 0:
         logger.warning("detect_face received an empty image.")
@@ -121,33 +140,46 @@ def detect_face(image: np.ndarray) -> Optional[FaceDetection]:
     h, w = image.shape[:2]
     FaceDetectionClass = _get_face_detection_class()
 
-    with FaceDetectionClass(
-        model_selection=1,  # full-range model
-        min_detection_confidence=DETECTION_CONFIDENCE_THRESHOLD,
-    ) as face_detection:
-        rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        results = face_detection.process(rgb)
+    if FaceDetectionClass is not None:
+        try:
+            with FaceDetectionClass(
+                model_selection=1,  # full-range model
+                min_detection_confidence=DETECTION_CONFIDENCE_THRESHOLD,
+            ) as face_detection:
+                rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                results = face_detection.process(rgb)
 
-        if not results.detections:
-            logger.debug("No faces detected.")
-            return None
+                if results.detections:
+                    best: Optional[FaceDetection] = None
+                    for det in results.detections:
+                        bbox_rel = det.location_data.relative_bounding_box
+                        xmin = max(int(bbox_rel.xmin * w), 0)
+                        ymin = max(int(bbox_rel.ymin * h), 0)
+                        box_w = min(int(bbox_rel.width * w), w - xmin)
+                        box_h = min(int(bbox_rel.height * h), h - ymin)
+                        conf = det.score[0]
 
-        best: Optional[FaceDetection] = None
-        for det in results.detections:
-            bbox_rel = det.location_data.relative_bounding_box
-            xmin = max(int(bbox_rel.xmin * w), 0)
-            ymin = max(int(bbox_rel.ymin * h), 0)
-            box_w = min(int(bbox_rel.width * w), w - xmin)
-            box_h = min(int(bbox_rel.height * h), h - ymin)
-            conf = det.score[0]
+                        candidate = FaceDetection(
+                            xmin=xmin, ymin=ymin, width=box_w, height=box_h, confidence=conf
+                        )
+                        if best is None or candidate.area > best.area:
+                            best = candidate
+                    return best
+        except Exception as exc:
+            logger.debug("FaceDetection failed: %s", exc)
 
-            candidate = FaceDetection(
-                xmin=xmin, ymin=ymin, width=box_w, height=box_h, confidence=conf
-            )
-            if best is None or candidate.area > best.area:
-                best = candidate
+    # Fallback to landmarks bounding box
+    lms = get_landmarks(image)
+    if lms is not None:
+        min_x = max(0, int(lms[:, 0].min()))
+        min_y = max(0, int(lms[:, 1].min()))
+        max_x = min(w, int(lms[:, 0].max()))
+        max_y = min(h, int(lms[:, 1].max()))
+        return FaceDetection(
+            xmin=min_x, ymin=min_y, width=max(1, max_x - min_x), height=max(1, max_y - min_y), confidence=0.9
+        )
 
-        return best
+    return None
 
 
 def decode_image_bytes(image_bytes: bytes) -> Optional[np.ndarray]:
@@ -169,53 +201,104 @@ def decode_image_bytes(image_bytes: bytes) -> Optional[np.ndarray]:
 import threading
 
 _FACE_MESH_SINGLETON = None
+_TASK_LANDMARKER_SINGLETON = None
 _FACE_MESH_LOCK = threading.Lock()
 
 
 def _get_face_mesh():
-    """Return a process-wide singleton FaceMesh instance to avoid re-init overhead."""
+    """Return a process-wide singleton FaceMesh instance (Solutions API)."""
     global _FACE_MESH_SINGLETON
     if _FACE_MESH_SINGLETON is None:
         with _FACE_MESH_LOCK:
             if _FACE_MESH_SINGLETON is None:
                 FaceMeshClass = _get_face_mesh_class()
-                _FACE_MESH_SINGLETON = FaceMeshClass(
-                    static_image_mode=True,
-                    max_num_faces=1,
-                    refine_landmarks=True,
-                    min_detection_confidence=0.5,
-                )
-    return _FACE_MESH_SINGLETON
+                if FaceMeshClass is not None:
+                    try:
+                        _FACE_MESH_SINGLETON = FaceMeshClass(
+                            static_image_mode=True,
+                            max_num_faces=1,
+                            refine_landmarks=True,
+                            min_detection_confidence=0.5,
+                        )
+                    except Exception as exc:
+                        logger.debug("Could not initialize FaceMesh solutions: %s", exc)
+                        _FACE_MESH_SINGLETON = False
+                else:
+                    _FACE_MESH_SINGLETON = False
+    return _FACE_MESH_SINGLETON if _FACE_MESH_SINGLETON is not False else None
+
+
+def _get_tasks_landmarker():
+    """Return a process-wide singleton Tasks FaceLandmarker instance."""
+    global _TASK_LANDMARKER_SINGLETON
+    if _TASK_LANDMARKER_SINGLETON is None:
+        with _FACE_MESH_LOCK:
+            if _TASK_LANDMARKER_SINGLETON is None:
+                try:
+                    from mediapipe.tasks.python import BaseOptions
+                    from mediapipe.tasks.python.vision import FaceLandmarker, FaceLandmarkerOptions
+                    model_path = _ensure_task_model()
+                    options = FaceLandmarkerOptions(
+                        base_options=BaseOptions(model_asset_path=model_path),
+                        num_faces=1,
+                        min_face_detection_confidence=0.5,
+                        min_face_presence_confidence=0.5,
+                    )
+                    _TASK_LANDMARKER_SINGLETON = FaceLandmarker.create_from_options(options)
+                except Exception as exc:
+                    logger.debug("Could not initialize Tasks FaceLandmarker: %s", exc)
+                    _TASK_LANDMARKER_SINGLETON = False
+    return _TASK_LANDMARKER_SINGLETON if _TASK_LANDMARKER_SINGLETON is not False else None
 
 
 def get_landmarks(image: np.ndarray) -> Optional[np.ndarray]:
     """Extract 468 face-mesh landmarks and return pixel coordinates.
 
-    Returns an array of shape ``(468, 2)`` with (x, y) in pixel space,
-    or ``None`` if no face mesh is detected.
+    Supports both legacy Solutions FaceMesh and modern MediaPipe Tasks FaceLandmarker.
+    Returns an array of shape ``(468, 2)`` with (x, y) in pixel space, or ``None``.
     """
     if image is None or image.size == 0:
         logger.warning("get_landmarks received an empty image.")
         return None
 
     h, w = image.shape[:2]
-    face_mesh = _get_face_mesh()
     rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-    with _FACE_MESH_LOCK:
-        results = face_mesh.process(rgb)
+    # 1. Try Solutions FaceMesh
+    face_mesh = _get_face_mesh()
+    if face_mesh is not None:
+        try:
+            with _FACE_MESH_LOCK:
+                results = face_mesh.process(rgb)
+            if results.multi_face_landmarks:
+                face = results.multi_face_landmarks[0]
+                num_pts = min(len(face.landmark), 468)
+                return np.array(
+                    [[face.landmark[i].x * w, face.landmark[i].y * h] for i in range(num_pts)],
+                    dtype=np.float32,
+                )
+        except Exception as exc:
+            logger.debug("Solutions FaceMesh processing error: %s", exc)
 
-    if not results.multi_face_landmarks:
-        logger.debug("No face mesh detected at 0 deg.")
-        return None
+    # 2. Try Tasks FaceLandmarker
+    task_landmarker = _get_tasks_landmarker()
+    if task_landmarker is not None:
+        try:
+            import mediapipe as mp
+            mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+            with _FACE_MESH_LOCK:
+                res = task_landmarker.detect(mp_img)
+            if res.face_landmarks:
+                face = res.face_landmarks[0]
+                num_pts = min(len(face), 468)
+                return np.array(
+                    [[face[i].x * w, face[i].y * h] for i in range(num_pts)],
+                    dtype=np.float32,
+                )
+        except Exception as exc:
+            logger.debug("Tasks FaceLandmarker processing error: %s", exc)
 
-    face = results.multi_face_landmarks[0]
-    landmarks = np.array(
-        [[lm.x * w, lm.y * h] for lm in face.landmark],
-        dtype=np.float32,
-    )  # (468, 2)
-
-    return landmarks
+    return None
 
 
 def get_landmarks_robust(image: np.ndarray) -> Tuple[np.ndarray, Optional[np.ndarray]]:
