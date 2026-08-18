@@ -23,12 +23,29 @@ logger = logging.getLogger(__name__)
 # Public constant - re-exported for downstream consumers
 # ---------------------------------------------------------------------------
 
+def _get_facemesh_tesselation():
+    try:
+        from mediapipe.python.solutions import face_mesh
+        return face_mesh.FACEMESH_TESSELATION
+    except Exception:
+        pass
+    try:
+        import mediapipe as mp
+        if hasattr(mp, "solutions") and hasattr(mp.solutions, "face_mesh"):
+            return mp.solutions.face_mesh.FACEMESH_TESSELATION
+    except Exception:
+        pass
+    try:
+        import mediapipe.python.solutions.face_mesh as fm
+        return fm.FACEMESH_TESSELATION
+    except Exception:
+        pass
+    return frozenset()
+
 #: Frozenset of (start_index, end_index) tuples that describe the Face Mesh
 #: tessellation edges.  Importable as ``from src.utils.landmarks import
 #: FACE_MESH_CONNECTIONS``.
-FACE_MESH_CONNECTIONS: frozenset[tuple[int, int]] = (
-    mp.solutions.face_mesh.FACEMESH_TESSELATION
-)
+FACE_MESH_CONNECTIONS: frozenset[tuple[int, int]] = _get_facemesh_tesselation()
 
 # ---------------------------------------------------------------------------
 # Landmark index groups

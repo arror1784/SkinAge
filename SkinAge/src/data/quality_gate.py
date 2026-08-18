@@ -120,19 +120,9 @@ def _thresholds_from_config(config: Optional[dict] = None) -> Dict[str, float]:
 # MediaPipe Face Detection & Landmarks (Standard Solutions API)
 # ---------------------------------------------------------------------------
 
-_MP_FACE_MESH = None
-
 def _get_mp_face_mesh():
-    global _MP_FACE_MESH
-    if _MP_FACE_MESH is None:
-        import mediapipe as mp
-        _MP_FACE_MESH = mp.solutions.face_mesh.FaceMesh(
-            static_image_mode=True,
-            max_num_faces=1,
-            refine_landmarks=True,
-            min_detection_confidence=0.5,
-        )
-    return _MP_FACE_MESH
+    from .face_alignment import _get_face_mesh
+    return _get_face_mesh()
 
 
 def _extract_landmarks_and_bbox(image: np.ndarray) -> Tuple[Optional[np.ndarray], Optional[Tuple[int, int, int, int]]]:

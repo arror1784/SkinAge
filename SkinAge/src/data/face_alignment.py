@@ -68,10 +68,49 @@ class AlignmentResult:
 # Core functions
 # ---------------------------------------------------------------------------
 
-def detect_face(image: np.ndarray) -> Optional[FaceDetection]:
-    """Detect the most prominent face in *image* (BGR, uint8).
+def _get_face_detection_class():
+    try:
+        from mediapipe.python.solutions import face_detection
+        return face_detection.FaceDetection
+    except Exception:
+        pass
+    try:
+        import mediapipe as mp
+        if hasattr(mp, "solutions") and hasattr(mp.solutions, "face_detection"):
+            return mp.solutions.face_detection.FaceDetection
+    except Exception:
+        pass
+    try:
+        import mediapipe.python.solutions.face_detection as fd
+        return fd.FaceDetection
+    except Exception:
+        pass
+    raise ImportError("Could not import MediaPipe FaceDetection.")
 
-    Uses MediaPipe Face Detection with a confidence threshold of 0.7.
+
+def _get_face_mesh_class():
+    try:
+        from mediapipe.python.solutions import face_mesh
+        return face_mesh.FaceMesh
+    except Exception:
+        pass
+    try:
+        import mediapipe as mp
+        if hasattr(mp, "solutions") and hasattr(mp.solutions, "face_mesh"):
+            return mp.solutions.face_mesh.FaceMesh
+    except Exception:
+        pass
+    try:
+        import mediapipe.python.solutions.face_mesh as fm
+        return fm.FaceMesh
+    except Exception:
+        pass
+    raise ImportError("Could not import MediaPipe FaceMesh.")
+
+
+def detect_face(image: np.ndarray) -> Optional[FaceDetection]:
+    """Detect the primary face in an image using MediaPipe Face Detection.
+
     When multiple faces are found the one with the largest bounding-box area
     is returned.  Returns ``None`` when no face meets the threshold.
     """
@@ -80,8 +119,9 @@ def detect_face(image: np.ndarray) -> Optional[FaceDetection]:
         return None
 
     h, w = image.shape[:2]
+    FaceDetectionClass = _get_face_detection_class()
 
-    with mp.solutions.face_detection.FaceDetection(
+    with FaceDetectionClass(
         model_selection=1,  # full-range model
         min_detection_confidence=DETECTION_CONFIDENCE_THRESHOLD,
     ) as face_detection:
@@ -138,7 +178,8 @@ def _get_face_mesh():
     if _FACE_MESH_SINGLETON is None:
         with _FACE_MESH_LOCK:
             if _FACE_MESH_SINGLETON is None:
-                _FACE_MESH_SINGLETON = mp.solutions.face_mesh.FaceMesh(
+                FaceMeshClass = _get_face_mesh_class()
+                _FACE_MESH_SINGLETON = FaceMeshClass(
                     static_image_mode=True,
                     max_num_faces=1,
                     refine_landmarks=True,
