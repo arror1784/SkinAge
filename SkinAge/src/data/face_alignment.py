@@ -21,6 +21,8 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]  # SkinAge/
+
 # ---------------------------------------------------------------------------
 # Landmark index groups for eye centres
 # ---------------------------------------------------------------------------
