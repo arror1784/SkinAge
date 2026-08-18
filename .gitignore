@@ -19,10 +19,11 @@ htmlcov/
 *.zip
 *.tar.gz
 
-# Data
-data/
+# Data (only top-level data datasets, never src/data)
 /data/
-SkinAge/data/
+/SkinAge/data/
+!/SkinAge/src/data/
+!/src/data/
 *.npy
 *.pkl
 
