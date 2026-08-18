@@ -242,56 +242,43 @@ SkinAge/
 
 ---
 
-## Quick Start
+## Quick Start (빠른 시작 가이드)
 
+### 1. 저장소 클론 및 패키지 설치
 ```bash
-# Setup
-python -m venv venv
-venv\Scripts\activate              # Windows
-# source venv/bin/activate         # macOS/Linux
+# 1) 저장소 클론
+git clone https://github.com/arror1784/SkinAge.git
+cd SkinAge/SkinAge
+
+# 2) 가상환경 생성 및 활성화
+python -m venv .venv
+source .venv/bin/activate       # macOS / Linux
+.venv\Scripts\activate          # Windows
+
+# 3) 패키지 설치
 pip install -r requirements.txt
-
-# Download datasets
-python -m SkinAge.src.data.download --dataset utk_face --output data/raw/
-python -m SkinAge.src.data.download --dataset ffhq --output data/raw/ --limit 10000
-python -m SkinAge.src.data.download --dataset celeba --output data/raw/ --limit 20000
-
-# Generate pseudo-labels
-python scripts/generate_pseudo_labels.py \
-    --data-dir data/raw/ \
-    --output-dir data/processed/
-
-# Train the model (two-phase: frozen backbone -> full fine-tune)
-python scripts/train.py \
-    --config config/model_config.yaml \
-    --data-dir data/processed/
-
-# Evaluate
-python scripts/evaluate.py \
-    --checkpoint outputs/models/best_model.pth \
-    --data-dir data/processed/
-
-# Export to ONNX
-python scripts/export_onnx.py \
-    --checkpoint outputs/models/best_model.pth \
-    --verify
-
-# Launch the API
-python scripts/serve.py --port 8000
-
-# Launch the dashboard
-python scripts/dashboard.py
 ```
 
-### Docker Deployment
-
+### 2. REST API 서버 실행
 ```bash
-# Build and run everything
-docker-compose up --build
-
-# API available at http://localhost:8000
-# Dashboard available at http://localhost:8501
+python scripts/serve.py --port 8000
 ```
+* **API 대화형 문서 (Swagger UI)**: `http://localhost:8000/docs`
+* **서버 상태 확인 (Health Check)**: `http://localhost:8000/api/v1/health`
+* **상세 연동 규격서**: [`docs/API_SPECIFICATION.md`](docs/API_SPECIFICATION.md) 참조
+
+### 3. 웹 인터랙티브 대시보드 실행
+```bash
+python scripts/dashboard.py --port 8501
+```
+* **브라우저 접속**: `http://localhost:8501`
+
+### 4. 도커(Docker) 원클릭 실행
+```bash
+docker-compose up --build
+```
+* **API 서버**: `http://localhost:8000`
+* **웹 대시보드**: `http://localhost:8501`
 
 ---
 
