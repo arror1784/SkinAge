@@ -180,6 +180,13 @@ class InferencePipeline:
 
         # Resolve relative paths against project root
         model_full_path = _PROJECT_ROOT / model_path
+        if not model_full_path.is_file():
+            try:
+                from scripts.download_weights import ensure_weights
+                ensure_weights(model_full_path)
+            except Exception as exc:
+                logger.debug("Automatic weight download skipped: %s", exc)
+
         if model_full_path.is_file():
             logger.info("Loading model from %s onto %s", model_full_path, self.device)
             self.model = SkinAgeModel.load_checkpoint(

@@ -261,6 +261,10 @@ pip install -r requirements.txt
 
 ### 2. REST API 서버 실행
 ```bash
+# (선택) 모델 가중치 사전 다운로드 (미실행 시 서버 시작 시 자동 다운로드)
+python scripts/download_weights.py
+
+# REST API 서버 기동
 python scripts/serve.py --port 8000
 ```
 * **API 대화형 문서 (Swagger UI)**: `http://localhost:8000/docs`
