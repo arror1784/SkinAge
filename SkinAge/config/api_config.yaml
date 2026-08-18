@@ -42,14 +42,14 @@ upload:
 # min_landmark_visibility - MediaPipe visibility score for required landmarks
 # -----------------------------------------------------------------------------
 quality_thresholds:
-  face_confidence: 0.70
-  max_yaw: 25               # Degrees; beyond this pose estimation degrades
-  max_pitch: 20             # Degrees
-  min_blur: 80              # Laplacian variance; lower = blurrier
-  min_brightness: 40        # 0-255 scale
-  max_brightness: 220       # 0-255 scale
-  min_face_size: 200        # Pixels; ensures sufficient texture resolution
-  min_landmark_visibility: 0.90  # Fraction of required landmarks clearly visible
+  face_confidence: 0.50
+  max_yaw: 40               # Degrees; calibrated for realistic selfies
+  max_pitch: 35             # Degrees
+  min_blur: 25              # Laplacian variance; calibrated for smartphone cameras
+  min_brightness: 30        # 0-255 scale
+  max_brightness: 235       # 0-255 scale
+  min_face_size: 100        # Pixels; ensures sufficient texture resolution
+  min_landmark_visibility: 0.70  # Fraction of required landmarks clearly visible
 
 # -----------------------------------------------------------------------------
 # Model Artefact Paths
