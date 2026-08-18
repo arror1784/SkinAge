@@ -1,16 +1,16 @@
 # =============================================================================
 # data_config.yaml
-# SkinAge ML — Dataset Paths, Splits, Pseudo-Labels, and Augmentation
+# SkinAge ML - Dataset Paths, Splits, Pseudo-Labels, and Augmentation
 # =============================================================================
 
 # -----------------------------------------------------------------------------
 # Dataset Registry
 # All paths are relative to the project root. Each dataset contributes
 # distinct demographic coverage and annotation density.
-#   utkface       — age-labelled, ethnicity-labelled, broad age range
-#   ffhq          — high-resolution, diverse, unlabelled ages (pseudo-labelled)
-#   celeba        — attribute-rich, large scale
-#   fitzpatrick17k — dermatology-focused, Fitzpatrick skin-type annotations
+#   utkface       - age-labelled, ethnicity-labelled, broad age range
+#   ffhq          - high-resolution, diverse, unlabelled ages (pseudo-labelled)
+#   celeba        - attribute-rich, large scale
+#   fitzpatrick17k - dermatology-focused, Fitzpatrick skin-type annotations
 # -----------------------------------------------------------------------------
 datasets:
   utkface:
@@ -52,7 +52,7 @@ splits:
   test:  0.15
 
 stratify_by:
-  - age_decade       # Bucketed age groups (0-9, 10-19, …) for balanced splits
+  - age_decade       # Bucketed age groups (0-9, 10-19, ...) for balanced splits
   - ethnicity
 
 # -----------------------------------------------------------------------------
@@ -98,8 +98,8 @@ pseudo_labels:
   # Pore texture detection via Gabor filter bank tuned to pore spatial freq.
   pore_texture:
     method: gabor
-    frequencies: [0.1, 0.2, 0.3]   # Cycles per pixel — targets pore scale
-    orientations: [0, 45, 90, 135]  # Degrees — rotation-invariant response
+    frequencies: [0.1, 0.2, 0.3]   # Cycles per pixel - targets pore scale
+    orientations: [0, 45, 90, 135]  # Degrees - rotation-invariant response
     sigma: 3.0
     gamma: 0.5               # Spatial aspect ratio of the Gabor filter
 

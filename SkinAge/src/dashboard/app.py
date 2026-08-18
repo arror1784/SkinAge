@@ -1,5 +1,5 @@
 """
-SkinAge Streamlit Dashboard — Main application entry point.
+SkinAge Streamlit Dashboard - Main application entry point.
 
 Standalone dashboard with direct inference (no API server needed).
 """

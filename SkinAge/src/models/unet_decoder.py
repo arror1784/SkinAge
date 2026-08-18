@@ -72,7 +72,7 @@ class DecoderBlock(nn.Module):
         Args:
             x:    Feature map from the previous decoder stage, shape (B, C, H, W).
             skip: Skip-connection feature map from the encoder, shape (B, C', H', W').
-                  H' and W' are the upsample target — they may differ from 2*H when
+                  H' and W' are the upsample target - they may differ from 2*H when
                   the encoder uses non-power-of-two strides, so we always align to
                   skip.shape[2:] rather than simply doubling.
 
@@ -157,7 +157,7 @@ class UNetDecoder(nn.Module):
 
         e0, e1, e2, e3, e4 = encoder_features
 
-        # Decoder path — each block doubles the spatial resolution.
+        # Decoder path - each block doubles the spatial resolution.
         x = self.block1(e4, e3)   # (B, 256,  32,  32)
         x = self.block2(x, e2)    # (B, 128,  64,  64)
         x = self.block3(x, e1)    # (B,  64, 128, 128)

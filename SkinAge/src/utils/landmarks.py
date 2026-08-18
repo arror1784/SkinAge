@@ -20,7 +20,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Public constant — re-exported for downstream consumers
+# Public constant - re-exported for downstream consumers
 # ---------------------------------------------------------------------------
 
 #: Frozenset of (start_index, end_index) tuples that describe the Face Mesh
@@ -128,9 +128,9 @@ def get_eye_centers(
     Returns
     -------
     left_center : np.ndarray
-        Shape (2,) — (x, y) pixel coordinate of the left eye centre.
+        Shape (2,) - (x, y) pixel coordinate of the left eye centre.
     right_center : np.ndarray
-        Shape (2,) — (x, y) pixel coordinate of the right eye centre.
+        Shape (2,) - (x, y) pixel coordinate of the right eye centre.
 
     Raises
     ------
@@ -154,7 +154,7 @@ def estimate_face_angle(
     cheek anchor points.
 
     **Pitch** (up/down tilt) is approximated from the vertical offset of the
-    nose tip relative to the midpoint on the chin–forehead axis.
+    nose tip relative to the midpoint on the chin-forehead axis.
 
     Both angles are zero for a perfectly frontal face, positive yaw indicates
     the face is turned to the left (from the subject's perspective), and
@@ -192,7 +192,7 @@ def estimate_face_angle(
         yaw_deg = 0.0
     else:
         mid_x = float((left_cheek[0] + right_cheek[0]) / 2.0)
-        # Offset normalised to half the face width → arcsin gives degrees
+        # Offset normalised to half the face width -> arcsin gives degrees
         offset_ratio = float(nose_tip[0] - mid_x) / (face_width / 2.0)
         offset_ratio = float(np.clip(offset_ratio, -1.0, 1.0))
         yaw_deg = float(np.degrees(np.arcsin(offset_ratio)))
@@ -249,7 +249,7 @@ def get_face_center(landmarks: np.ndarray) -> np.ndarray:
     Returns
     -------
     np.ndarray
-        Shape (2,) — (x, y) pixel coordinate of the face centre.
+        Shape (2,) - (x, y) pixel coordinate of the face centre.
 
     Raises
     ------

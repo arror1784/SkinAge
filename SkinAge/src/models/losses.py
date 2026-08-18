@@ -15,8 +15,8 @@ the age branch.
 This is communicated through the ``targets`` dict produced by
 ``skinage_collate_fn`` in ``src/data/dataset.py``:
 
-    targets["age"]          — Tensor(K, 1) or None; ground-truth ages
-    targets["age_indices"]  — LongTensor(K,);  within-batch row indices
+    targets["age"]          - Tensor(K, 1) or None; ground-truth ages
+    targets["age_indices"]  - LongTensor(K,);  within-batch row indices
 
 When no sample in the batch has an age label, ``targets["age"]`` is ``None``
 and ``targets["age_indices"]`` is an empty tensor.  The age component of the
@@ -24,14 +24,14 @@ loss is set to ``0.0`` in that case (no-gradient contribution).
 
 Loss functions
 --------------
-Heatmap  — MSELoss, because pseudo-label heatmaps are continuous in [0, 1]
+Heatmap  - MSELoss, because pseudo-label heatmaps are continuous in [0, 1]
            and MSE produces stable gradients across the full spatial map.
 
-Quality  — SmoothL1Loss (Huber), which is less sensitive to the small number
+Quality  - SmoothL1Loss (Huber), which is less sensitive to the small number
            of out-of-distribution pseudo-label scores that are produced early
            in the pseudo-labelling pipeline.
 
-Age      — SmoothL1Loss (Huber), for the same reason as quality: robustness
+Age      - SmoothL1Loss (Huber), for the same reason as quality: robustness
            to noisy age labels and extreme outliers in the UTKFace age
            distribution (>80 years).
 
@@ -115,7 +115,7 @@ class MultiTaskLoss(nn.Module):
         self.age_loss: nn.Module = nn.SmoothL1Loss()
 
         logger.debug(
-            "MultiTaskLoss — weights: heatmap=%.2f, quality=%.2f, age=%.2f",
+            "MultiTaskLoss - weights: heatmap=%.2f, quality=%.2f, age=%.2f",
             self.w_heatmap,
             self.w_quality,
             self.w_age,
@@ -137,30 +137,30 @@ class MultiTaskLoss(nn.Module):
         predictions:
             Dict produced by ``SkinAgeModel.forward()``:
 
-            ``"heatmaps"`` — ``(B, 4, H, W)`` float32, values in ``[0, 1]``
-            ``"quality"``  — ``(B, 28)``        float32, values in ``[0, 1]``
-            ``"age"``      — ``(B, 1)``          float32, non-negative
+            ``"heatmaps"`` - ``(B, 4, H, W)`` float32, values in ``[0, 1]``
+            ``"quality"``  - ``(B, 28)``        float32, values in ``[0, 1]``
+            ``"age"``      - ``(B, 1)``          float32, non-negative
 
         targets:
             Collated batch dict from ``skinage_collate_fn()`` in
             ``src/data/dataset.py``:
 
-            ``"heatmaps"``      — ``(B, 4, H, W)`` float32
-            ``"quality_scores"``— ``(B, 28)``       float32 in ``[0, 1]``
-            ``"age"``           — ``(K, 1)`` float32 or ``None``
-            ``"age_indices"``   — ``(K,)``   int64 (within-batch row indices)
+            ``"heatmaps"``      - ``(B, 4, H, W)`` float32
+            ``"quality_scores"``- ``(B, 28)``       float32 in ``[0, 1]``
+            ``"age"``           - ``(K, 1)`` float32 or ``None``
+            ``"age_indices"``   - ``(K,)``   int64 (within-batch row indices)
 
         Returns
         -------
         dict with keys ``"total"``, ``"heatmap"``, ``"quality"``, ``"age"``:
 
-        ``"total"``    — weighted sum; this is the tensor to call ``.backward()`` on
-        ``"heatmap"``  — unweighted heatmap loss (for logging / monitoring)
-        ``"quality"``  — unweighted quality loss (for logging / monitoring)
-        ``"age"``      — unweighted age loss (0 when no age labels in batch)
+        ``"total"``    - weighted sum; this is the tensor to call ``.backward()`` on
+        ``"heatmap"``  - unweighted heatmap loss (for logging / monitoring)
+        ``"quality"``  - unweighted quality loss (for logging / monitoring)
+        ``"age"``      - unweighted age loss (0 when no age labels in batch)
         """
         # ------------------------------------------------------------------ #
-        # Heatmap branch — all samples in the batch contribute                #
+        # Heatmap branch - all samples in the batch contribute                #
         # ------------------------------------------------------------------ #
         loss_heatmap: torch.Tensor = self.heatmap_loss(
             predictions["heatmaps"],
@@ -168,7 +168,7 @@ class MultiTaskLoss(nn.Module):
         )
 
         # ------------------------------------------------------------------ #
-        # Quality branch — all samples in the batch contribute                #
+        # Quality branch - all samples in the batch contribute                #
         # ------------------------------------------------------------------ #
         loss_quality: torch.Tensor = self.quality_loss(
             predictions["quality"],
@@ -176,7 +176,7 @@ class MultiTaskLoss(nn.Module):
         )
 
         # ------------------------------------------------------------------ #
-        # Age branch — only samples with ground-truth age labels contribute   #
+        # Age branch - only samples with ground-truth age labels contribute   #
         # ------------------------------------------------------------------ #
         age_targets: Optional[torch.Tensor] = targets["age"]
         age_indices: torch.Tensor = targets["age_indices"]
@@ -186,7 +186,7 @@ class MultiTaskLoss(nn.Module):
             pred_age_subset: torch.Tensor = predictions["age"][age_indices]
             loss_age: torch.Tensor = self.age_loss(pred_age_subset, age_targets)
         else:
-            # No age labels in this batch — contribute a zero gradient.
+            # No age labels in this batch - contribute a zero gradient.
             # We create the tensor on the same device as the age predictions
             # so that device checks in the training loop remain consistent.
             loss_age = torch.tensor(

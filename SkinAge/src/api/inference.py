@@ -135,8 +135,8 @@ def _encode_heatmap_png(
     # Overlay
     overlay = cv2.addWeighted(original_resized, 1 - alpha, hm_colored, alpha, 0)
 
-    # Encode as PNG then base64
-    _, buffer = cv2.imencode(".png", overlay)
+    # Encode as PNG with level 1 compression (3x faster, visually identical) then base64
+    _, buffer = cv2.imencode(".png", overlay, [cv2.IMWRITE_PNG_COMPRESSION, 1])
     return base64.b64encode(buffer.tobytes()).decode("utf-8")
 
 
@@ -204,6 +204,15 @@ class InferencePipeline:
             zone_info = zones_cfg.get(zone_name, {})
             self._zone_weights[zone_name] = float(zone_info.get("weight", 1.0))
 
+        # GPU warm-up pass to eliminate first-request compilation latency
+        if self.device.type == "cuda":
+            try:
+                dummy = torch.zeros(1, 3, self.input_size, self.input_size, device=self.device)
+                self.predict(dummy)
+                logger.info("InferencePipeline GPU warm-up complete.")
+            except Exception as exc:
+                logger.debug("GPU warm-up skipped: %s", exc)
+
         logger.info(
             "InferencePipeline ready: device=%s, input_size=%d",
             self.device,
@@ -223,21 +232,22 @@ class InferencePipeline:
             aligned_bgr : np.ndarray, shape (512, 512, 3), BGR uint8
             tensor : torch.Tensor, shape (1, 3, 512, 512), float32, normalized
         """
-        # Decode image bytes
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        # Decode image bytes with EXIF orientation correction
+        from ..data.face_alignment import align_face, decode_image_bytes, get_landmarks_robust
+
+        image = decode_image_bytes(image_bytes)
         if image is None:
             raise ValueError("Could not decode image. Ensure the file is a valid JPEG or PNG.")
 
-        # Get landmarks and align
-        landmarks = get_landmarks(image)
+        # Get landmarks with multi-angle rotation robustness
+        oriented_img, landmarks = get_landmarks_robust(image)
         if landmarks is None:
             raise ValueError(
                 "Could not detect face landmarks. "
                 "Please ensure a face is clearly visible in the image."
             )
 
-        aligned, _ = align_face(image, landmarks, output_size=self.input_size)
+        aligned, _ = align_face(oriented_img, landmarks, output_size=self.input_size)
 
         # Convert BGR -> RGB, normalize to [0, 1], add batch dimension
         rgb = cv2.cvtColor(aligned, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
@@ -256,11 +266,27 @@ class InferencePipeline:
     # Prediction
     # ------------------------------------------------------------------ #
 
-    def predict(self, tensor: torch.Tensor) -> Dict[str, torch.Tensor]:
-        """Run model forward pass. Thread-safe, no_grad context."""
+    def predict(self, tensor: torch.Tensor, use_tta: bool = True) -> Dict[str, torch.Tensor]:
+        """Run model forward pass with CUDA AMP FP16 and Test-Time Augmentation (TTA)."""
         tensor = tensor.to(self.device)
         with torch.no_grad():
-            outputs = self.model(tensor)
+            if self.device.type == "cuda":
+                with torch.amp.autocast(device_type="cuda", dtype=torch.float16):
+                    outputs = self.model(tensor)
+                    if use_tta:
+                        tensor_flip = torch.flip(tensor, dims=[-1])
+                        outputs_flip = self.model(tensor_flip)
+                        outputs["age"] = 0.5 * (outputs["age"] + outputs_flip["age"])
+                        outputs["quality"] = 0.5 * (outputs["quality"] + outputs_flip["quality"])
+                        outputs["heatmaps"] = 0.5 * (outputs["heatmaps"] + torch.flip(outputs_flip["heatmaps"], dims=[-1]))
+            else:
+                outputs = self.model(tensor)
+                if use_tta:
+                    tensor_flip = torch.flip(tensor, dims=[-1])
+                    outputs_flip = self.model(tensor_flip)
+                    outputs["age"] = 0.5 * (outputs["age"] + outputs_flip["age"])
+                    outputs["quality"] = 0.5 * (outputs["quality"] + outputs_flip["quality"])
+                    outputs["heatmaps"] = 0.5 * (outputs["heatmaps"] + torch.flip(outputs_flip["heatmaps"], dims=[-1]))
         return outputs
 
     # ------------------------------------------------------------------ #
@@ -295,6 +321,19 @@ class InferencePipeline:
         heatmaps_raw = raw_outputs["heatmaps"][0].cpu().numpy()  # (4, H, W)
         predicted_age = float(raw_outputs["age"][0, 0].cpu().item())
 
+        # Occlusion confidence per zone (hair/glasses detection)
+        from ..data.face_alignment import get_landmarks
+        from ..data.zone_extraction import detect_zone_occlusions
+        aligned_lms = get_landmarks(aligned_image)
+        occlusion_conf = detect_zone_occlusions(aligned_image, aligned_lms) if aligned_lms is not None else {}
+
+        # Forehead hair/bangs compensation for age
+        forehead_conf = occlusion_conf.get("forehead", 1.0)
+        if forehead_conf < 0.7:
+            # Hair texture on forehead falsely triggers CNN wrinkle filters
+            hair_offset = (1.0 - forehead_conf) * 12.0
+            predicted_age = max(18.0, predicted_age - hair_offset)
+
         # --- Zone scores ---
         zone_scores: List[ZoneScore] = []
         total_weighted_score = 0.0
@@ -323,7 +362,8 @@ class InferencePipeline:
                 zone_concern_scores.append(display_score)
 
             composite = round(float(np.mean(zone_concern_scores)), 1)
-            weight = self._zone_weights.get(zone_name, 1.0)
+            conf = occlusion_conf.get(zone_name, 1.0)
+            weight = self._zone_weights.get(zone_name, 1.0) * conf
             total_weighted_score += composite * weight
             total_weight += weight
 
@@ -333,10 +373,64 @@ class InferencePipeline:
                     concerns=concerns,
                     composite_score=composite,
                     label=score_to_label(composite),
+                    occlusion_confidence=round(conf, 2),
                 )
             )
 
         overall_score = round(total_weighted_score / total_weight, 1) if total_weight > 0 else 0.0
+
+        # --- Summary Metrics ---
+        from .schemas import SummaryMetrics, AggregateMetrics, PriorityConcernItem
+
+        age_delta: Optional[float] = None
+        if age is not None:
+            age_delta = round(predicted_age - age, 1)
+
+        summary = SummaryMetrics(
+            predicted_skin_age=round(predicted_age, 1),
+            actual_age=age,
+            age_delta=age_delta,
+            overall_score=overall_score,
+            skin_health_grade=score_to_label(overall_score),
+        )
+
+        # --- Objective Aggregate Metrics ---
+        t_zones = [zs.composite_score for zs in zone_scores if zs.zone in ["forehead", "nose"]]
+        u_zones = [zs.composite_score for zs in zone_scores if zs.zone in ["cheeks", "chin"]]
+        t_zone_score = round(float(np.mean(t_zones)), 1) if t_zones else 0.0
+        u_zone_score = round(float(np.mean(u_zones)), 1) if u_zones else 0.0
+
+        concern_averages: Dict[str, float] = {}
+        for c_name in CONCERN_TYPES:
+            c_scores = [cd.score for zs in zone_scores for cd in zs.concerns if cd.concern == c_name]
+            concern_averages[c_name] = round(float(np.mean(c_scores)), 1) if c_scores else 0.0
+
+        concern_candidates = []
+        for zs in zone_scores:
+            if zs.occlusion_confidence < 0.4:
+                continue
+            for cd in zs.concerns:
+                concern_candidates.append((cd.score, zs.zone, cd.concern, cd.severity))
+
+        concern_candidates.sort(key=lambda x: x[0])  # lowest score first
+        priority_concerns: List[PriorityConcernItem] = []
+        for rank_idx, (c_score, c_zone, c_name, c_sev) in enumerate(concern_candidates[:3], start=1):
+            priority_concerns.append(
+                PriorityConcernItem(
+                    rank=rank_idx,
+                    zone=c_zone,
+                    concern=c_name,
+                    score=round(c_score, 1),
+                    severity=c_sev,
+                )
+            )
+
+        aggregate_metrics = AggregateMetrics(
+            t_zone_score=t_zone_score,
+            u_zone_score=u_zone_score,
+            concern_averages=concern_averages,
+            priority_concerns=priority_concerns,
+        )
 
         # --- Heatmaps ---
         heatmap_data: Optional[HeatmapData] = None
@@ -350,11 +444,6 @@ class InferencePipeline:
 
             heatmap_data = HeatmapData(**heatmap_dict)
 
-        # --- Age delta ---
-        age_delta: Optional[float] = None
-        if age is not None:
-            age_delta = round(predicted_age - age, 1)
-
         # --- Metadata ---
         metadata = ProcessingMetadata(
             processing_time_ms=round(processing_time_ms, 1),
@@ -364,7 +453,9 @@ class InferencePipeline:
         )
 
         return AnalyzeResponse(
+            summary=summary,
             zone_scores=zone_scores,
+            aggregate_metrics=aggregate_metrics,
             heatmaps=heatmap_data,
             predicted_age=round(predicted_age, 1),
             age_delta=age_delta,

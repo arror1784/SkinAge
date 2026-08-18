@@ -6,7 +6,7 @@ feature vector produced by the EfficientNet-B2 backbone.
 
 Architecture
 ------------
-    Linear(1408 → 256) → ReLU → Dropout(0.3) → Linear(256 → 1) → ReLU
+    Linear(1408 -> 256) -> ReLU -> Dropout(0.3) -> Linear(256 -> 1) -> ReLU
 
 Output range
 ------------
@@ -18,7 +18,7 @@ Mixed-label training
 Not every sample in a batch carries an age label (only UTKFace images do).
 The training loop uses ``batch["age_indices"]`` to select the subset of
 predictions that have a corresponding ground-truth label before computing
-the age regression loss — see :func:`~src.data.dataset.skinage_collate_fn`
+the age regression loss - see :func:`~src.data.dataset.skinage_collate_fn`
 for details.  This module is unaware of that masking; it always produces a
 prediction for every element in the batch.
 """
@@ -36,7 +36,7 @@ class AgeHead(nn.Module):
     ----------
     in_features : int
         Dimensionality of the input feature vector.  Must match the backbone's
-        output channel depth (EfficientNet-B2 → 1408).
+        output channel depth (EfficientNet-B2 -> 1408).
     hidden_dim : int
         Width of the intermediate fully-connected layer.
     dropout : float
@@ -68,12 +68,12 @@ class AgeHead(nn.Module):
         self.net = nn.Sequential(
             # Hidden layer: distil global features into age-relevant factors
             nn.Linear(in_features, hidden_dim),
-            nn.ReLU(inplace=True),
+            nn.LayerNorm(hidden_dim),
+            nn.GELU(),
             nn.Dropout(p=dropout),
-            # Output layer: single age logit
+            # Output layer: bounded age in [0, 100] years
             nn.Linear(hidden_dim, 1),
-            # ReLU ensures the predicted age is always non-negative
-            nn.ReLU(inplace=True),
+            nn.Sigmoid(),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -87,9 +87,9 @@ class AgeHead(nn.Module):
         Returns
         -------
         torch.Tensor
-            Shape ``(B, 1)``.  Predicted age in years, values >= 0.
+            Shape ``(B, 1)``.  Predicted age in years, values in [0, 100].
         """
-        return self.net(x)
+        return self.net(x) * 100.0
 
     def __repr__(self) -> str:  # pragma: no cover
         return (

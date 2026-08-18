@@ -1,5 +1,5 @@
 """
-Page 1 — Live Demo.
+Page 1 - Live Demo.
 
 Upload a selfie, run the SkinAge analysis directly (no API server needed),
 and display score cards, gauge chart, heatmap thumbnails.
@@ -218,22 +218,20 @@ def render() -> None:
             f"</div>"
         )
 
-    st.markdown(
-        f"""
-        <div class="skin-stat-row">
-            <div class="skin-stat">
-                <div class="value">{predicted_age:.1f}<span style="font-size:18px;color:#8892B0;"> yrs</span></div>
-                <div class="label">Predicted Skin Age</div>
-            </div>
-            {delta_html}
-            <div class="skin-stat">
-                <div class="value">{proc_time:.0f}<span style="font-size:18px;color:#8892B0;"> ms</span></div>
-                <div class="label">Processing Time</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    stats_html = (
+        f'<div class="skin-stat-row">'
+        f'<div class="skin-stat">'
+        f'<div class="value">{predicted_age:.1f}<span style="font-size:18px;color:#8892B0;"> yrs</span></div>'
+        f'<div class="label">Predicted Skin Age</div>'
+        f'</div>'
+        f'{delta_html}'
+        f'<div class="skin-stat">'
+        f'<div class="value">{proc_time:.0f}<span style="font-size:18px;color:#8892B0;"> ms</span></div>'
+        f'<div class="label">Processing Time</div>'
+        f'</div>'
+        f'</div>'
     )
+    st.markdown(stats_html, unsafe_allow_html=True)
 
     st.divider()
 

@@ -20,10 +20,10 @@ Heatmap channel naming convention
 Each heatmap channel is registered as an additional target named
 ``heatmap_ch0`` … ``heatmap_ch3``, mapping to::
 
-    ch0 → wrinkle
-    ch1 → pigmentation
-    ch2 → redness
-    ch3 → pore_texture
+    ch0 -> wrinkle
+    ch1 -> pigmentation
+    ch2 -> redness
+    ch3 -> pore_texture
 
 The caller (SkinAgeDataset) is responsible for splitting the ``(H, W, 4)``
 array into four ``(H, W)`` float32 arrays and passing them as keyword
@@ -41,7 +41,7 @@ from albumentations.pytorch import ToTensorV2
 # Constants
 # ---------------------------------------------------------------------------
 
-# ImageNet normalisation constants — backbone was pretrained on ImageNet
+# ImageNet normalisation constants - backbone was pretrained on ImageNet
 _IMAGENET_MEAN = (0.485, 0.456, 0.406)
 _IMAGENET_STD = (0.229, 0.224, 0.225)
 
@@ -97,27 +97,27 @@ def get_train_transforms(image_size: int = 512) -> A.Compose:
 
     Spatial transforms
     ~~~~~~~~~~~~~~~~~~
-    - ``HorizontalFlip`` — mirrors faces; valid because facial aging is
+    - ``HorizontalFlip`` - mirrors faces; valid because facial aging is
       approximately symmetric.  Probability 0.5.
-    - ``Rotate`` — small head-tilt variation (±10°).  Probability 0.3.
+    - ``Rotate`` - small head-tilt variation (±10°).  Probability 0.3.
       ``border_mode=cv2.BORDER_REFLECT_101`` prevents black border artefacts.
 
     Photometric transforms (colour-safe)
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    - ``RandomBrightnessContrast`` — simulates different exposure settings
+    - ``RandomBrightnessContrast`` - simulates different exposure settings
       (brightness ±15%, contrast ±10%).  Probability 0.3.  Kept mild to
       avoid washing out pigmentation signals.
-    - ``ImageCompression`` — JPEG quality [60, 100] simulates the full range
+    - ``ImageCompression`` - JPEG quality [60, 100] simulates the full range
       of phone camera and upload scenarios.  Probability 0.2.
-    - **No hue/saturation/channel-shuffle transforms** — skin tone encodes
+    - **No hue/saturation/channel-shuffle transforms** - skin tone encodes
       redness (a* channel) and hyperpigmentation (L* channel); distorting
       these would corrupt pseudo-label targets.
 
     Normalisation & tensor conversion
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    - ``Normalize`` — ImageNet mean/std applied to the RGB image only (masks
+    - ``Normalize`` - ImageNet mean/std applied to the RGB image only (masks
       are unaffected because they are registered as ``"mask"`` targets).
-    - ``ToTensorV2`` — converts the image to ``torch.float32`` (C, H, W) and
+    - ``ToTensorV2`` - converts the image to ``torch.float32`` (C, H, W) and
       each mask to ``torch.float32`` (H, W).
 
     Parameters
@@ -134,7 +134,7 @@ def get_train_transforms(image_size: int = 512) -> A.Compose:
     return A.Compose(
         [
             # ------------------------------------------------------------------
-            # Spatial transforms — applied equally to image and all masks
+            # Spatial transforms - applied equally to image and all masks
             # ------------------------------------------------------------------
             A.HorizontalFlip(p=0.5),
             A.Rotate(
@@ -144,7 +144,7 @@ def get_train_transforms(image_size: int = 512) -> A.Compose:
                 p=0.3,
             ),
             # ------------------------------------------------------------------
-            # Photometric transforms — image only (masks unaffected via type)
+            # Photometric transforms - image only (masks unaffected via type)
             # ------------------------------------------------------------------
             A.RandomBrightnessContrast(
                 brightness_limit=0.15,
@@ -246,7 +246,7 @@ def denormalise_image(tensor: "torch.Tensor") -> "torch.Tensor":  # noqa: F821
     std = torch.tensor(_IMAGENET_STD, dtype=torch.float32)
 
     if tensor.ndim == 4:
-        # (B, C, H, W) → broadcast over batch and spatial dims
+        # (B, C, H, W) -> broadcast over batch and spatial dims
         mean = mean.view(1, 3, 1, 1)
         std = std.view(1, 3, 1, 1)
     else:

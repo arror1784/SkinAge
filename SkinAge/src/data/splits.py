@@ -5,12 +5,12 @@ Split strategy
 --------------
 Images fall into two categories:
 
-1. **Stratifiable** — rows that have both ``age_decade`` and ``ethnicity``
+1. **Stratifiable** - rows that have both ``age_decade`` and ``ethnicity``
    columns populated.  These are split using stratified sampling so every
    split mirrors the joint (age_decade, ethnicity) distribution of the full
    dataset.
 
-2. **Random** — rows that are missing one or both stratification columns
+2. **Random** - rows that are missing one or both stratification columns
    (typically FFHQ / CelebA images).  These are split with a purely random
    assignment using the same seed so reproducibility is maintained.
 
@@ -163,7 +163,7 @@ def _split_indices(
             stratify_labels = stratify_labels[valid_mask]
 
             if len(indices) == 0:
-                # Everything was rare — fall back entirely to random
+                # Everything was rare - fall back entirely to random
                 all_idx = np.concatenate([indices, rare_indices])
                 return _split_indices(all_idx, train_ratio, val_ratio, test_ratio, seed, None)
         else:
@@ -183,7 +183,7 @@ def _split_indices(
     # ---- Second split: val vs. test (within the held-out portion) ----
     # Derive matching stratify labels for the val+test subset
     if stratify_labels is not None:
-        # Build a mapping from index value → label for the val_test subset
+        # Build a mapping from index value -> label for the val_test subset
         idx_to_label = dict(zip(indices.tolist(), stratify_labels.tolist()))
         val_test_strat = np.array(
             [idx_to_label[i] for i in val_test_idx],
@@ -243,11 +243,11 @@ def create_splits(
     metadata_df : pd.DataFrame
         One row per image.  Recognised columns:
 
-        - ``image_path`` *(required)* — path to the aligned face image.
-        - ``age`` *(optional)* — chronological age in years.
-        - ``age_decade`` *(optional)* — pre-bucketed decade string
+        - ``image_path`` *(required)* - path to the aligned face image.
+        - ``age`` *(optional)* - chronological age in years.
+        - ``age_decade`` *(optional)* - pre-bucketed decade string
           (e.g. ``"30s"``).  Derived from ``age`` if absent.
-        - ``ethnicity`` *(optional)* — categorical string
+        - ``ethnicity`` *(optional)* - categorical string
           (e.g. ``"white"``, ``"black"``, ``"asian"``).
         - Any other columns are preserved verbatim in the output.
 
@@ -263,7 +263,7 @@ def create_splits(
     Returns
     -------
     Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]
-        ``(train_df, val_df, test_df)`` — all with identical columns to
+        ``(train_df, val_df, test_df)`` - all with identical columns to
         *metadata_df* plus an added ``split`` column.
 
     Raises
@@ -331,7 +331,7 @@ def create_splits(
     test_df = df.iloc[test_indices].copy().assign(split="test")
 
     logger.info(
-        "Splits created — train: %d (%.1f%%), val: %d (%.1f%%), test: %d (%.1f%%)",
+        "Splits created - train: %d (%.1f%%), val: %d (%.1f%%), test: %d (%.1f%%)",
         len(train_df), 100.0 * len(train_df) / n_total,
         len(val_df), 100.0 * len(val_df) / n_total,
         len(test_df), 100.0 * len(test_df) / n_total,
@@ -431,13 +431,13 @@ def split_summary(
 
     Columns in the returned DataFrame:
 
-    - ``split`` — "train", "val", "test"
-    - ``n`` — number of samples
-    - ``pct`` — percentage of the combined total
-    - ``age_mean``, ``age_std`` — mean and standard deviation of ``age``
+    - ``split`` - "train", "val", "test"
+    - ``n`` - number of samples
+    - ``pct`` - percentage of the combined total
+    - ``age_mean``, ``age_std`` - mean and standard deviation of ``age``
       (only when the column is present and non-empty)
-    - ``n_has_age`` — count of rows with a valid age label
-    - ``n_datasets`` — number of distinct ``dataset_source`` values
+    - ``n_has_age`` - count of rows with a valid age label
+    - ``n_datasets`` - number of distinct ``dataset_source`` values
 
     Parameters
     ----------

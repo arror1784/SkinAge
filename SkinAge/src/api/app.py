@@ -74,7 +74,7 @@ def create_app(config_path: Optional[str] = None, demo: bool = False) -> FastAPI
 
         # Load inference pipeline
         if demo:
-            logger.info("DEMO MODE — using mock inference pipeline.")
+            logger.info("DEMO MODE - using mock inference pipeline.")
             app.state.inference_pipeline = DemoInferencePipeline()
             app.state.demo_mode = True
         else:

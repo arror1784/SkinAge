@@ -16,8 +16,8 @@ Usage
         --device cuda
 
 Exit codes:
-    0 — All evaluation thresholds pass
-    1 — One or more thresholds fail
+    0 - All evaluation thresholds pass
+    1 - One or more thresholds fail
 """
 
 from __future__ import annotations
@@ -34,20 +34,35 @@ import pandas as pd
 import torch
 
 # Add project root to path for imports
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+REPO_ROOT = PROJECT_ROOT.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
-from SkinAge.src.data.dataset import SkinAgeDataset, skinage_collate_fn
-from SkinAge.src.evaluation.fairness import generate_fairness_report
-from SkinAge.src.evaluation.metrics import THRESHOLDS, compute_all_metrics
-from SkinAge.src.evaluation.visualize import (
-    plot_age_error_by_group,
-    plot_confusion_heatmap,
-    plot_redness_calibration,
-    plot_score_distributions,
-)
-from SkinAge.src.models.skinage_model import SkinAgeModel
+try:
+    from src.data.dataset import SkinAgeDataset, skinage_collate_fn
+    from src.evaluation.fairness import generate_fairness_report
+    from src.evaluation.metrics import THRESHOLDS, compute_all_metrics
+    from src.evaluation.visualize import (
+        plot_age_error_by_group,
+        plot_confusion_heatmap,
+        plot_redness_calibration,
+        plot_score_distributions,
+    )
+    from src.models.skinage_model import SkinAgeModel
+except ImportError:
+    from SkinAge.src.data.dataset import SkinAgeDataset, skinage_collate_fn
+    from SkinAge.src.evaluation.fairness import generate_fairness_report
+    from SkinAge.src.evaluation.metrics import THRESHOLDS, compute_all_metrics
+    from SkinAge.src.evaluation.visualize import (
+        plot_age_error_by_group,
+        plot_confusion_heatmap,
+        plot_redness_calibration,
+        plot_score_distributions,
+    )
+    from SkinAge.src.models.skinage_model import SkinAgeModel
 
 logger = logging.getLogger(__name__)
 
@@ -102,16 +117,20 @@ def _load_test_data(
 ) -> pd.DataFrame:
     """Load metadata DataFrame for the specified split.
 
-    Looks for ``{data_dir}/splits/{split}.csv`` or falls back to
-    ``{data_dir}/metadata.csv`` with a ``split`` column.
+    Looks for ``{data_dir}/splits/{split}.csv``, ``{data_dir}/processed/splits/{split}.csv``,
+    or falls back to ``{data_dir}/metadata.csv`` with a ``split`` column.
     """
     data_path = Path(data_dir)
 
     # Strategy 1: dedicated split file
-    split_file = data_path / "splits" / f"{split}.csv"
-    if split_file.exists():
-        logger.info("Loading split from %s", split_file)
-        return pd.read_csv(str(split_file))
+    for candidate in [
+        data_path / "splits" / f"{split}.csv",
+        data_path / "processed" / "splits" / f"{split}.csv",
+        PROJECT_ROOT / "data" / "processed" / "splits" / f"{split}.csv",
+    ]:
+        if candidate.exists():
+            logger.info("Loading split from %s", candidate)
+            return pd.read_csv(str(candidate))
 
     # Strategy 2: combined metadata with split column
     combined = data_path / "metadata.csv"
@@ -132,7 +151,7 @@ def _load_test_data(
             return df
 
     raise FileNotFoundError(
-        f"Could not find split data at {split_file} or {combined}. "
+        f"Could not find split data for '{split}' under {data_path}. "
         f"Please ensure data is prepared."
     )
 
@@ -252,7 +271,7 @@ def main() -> int:
         help="Batch size for evaluation.",
     )
     parser.add_argument(
-        "--num-workers", type=int, default=4,
+        "--num-workers", type=int, default=0,
         help="Number of dataloader workers.",
     )
 

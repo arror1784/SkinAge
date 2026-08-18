@@ -48,33 +48,42 @@ from typing import Optional
 import torch
 import yaml
 
-# ---------------------------------------------------------------------------
-# Prerequisite verification — fail fast with a clear diagnostic if Phase 1
-# pipeline modules are not importable (import errors surface before training
-# setup to avoid confusing mid-run crashes).
-# ---------------------------------------------------------------------------
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+_REPO_ROOT = _PROJECT_ROOT.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
-# These imports are placed at module level so that running
-#   python SkinAge/scripts/train.py
-# or
-#   python -c "import SkinAge.scripts.train"
-# immediately surfaces any unresolved Phase 1 dependencies.
-
-from SkinAge.src.data.splits import load_splits                                   # noqa: E402
-from SkinAge.src.data.dataset import SkinAgeDataset, skinage_collate_fn           # noqa: E402
-from SkinAge.src.data.dataset import build_dataloader                              # noqa: E402
-from SkinAge.src.data.augmentation import get_train_transforms, get_val_transforms # noqa: E402
-from SkinAge.src.utils.reproducibility import set_seed, get_device                # noqa: E402
-from SkinAge.src.utils.reproducibility import log_system_info                     # noqa: E402
+try:
+    from src.data.splits import load_splits                                   # noqa: E402
+    from src.data.dataset import SkinAgeDataset, skinage_collate_fn           # noqa: E402
+    from src.data.dataset import build_dataloader                              # noqa: E402
+    from src.data.augmentation import get_train_transforms, get_val_transforms # noqa: E402
+    from src.utils.reproducibility import set_seed, get_device                # noqa: E402
+    from src.utils.reproducibility import log_system_info                     # noqa: E402
+except ImportError:
+    from SkinAge.src.data.splits import load_splits                                   # noqa: E402
+    from SkinAge.src.data.dataset import SkinAgeDataset, skinage_collate_fn           # noqa: E402
+    from SkinAge.src.data.dataset import build_dataloader                              # noqa: E402
+    from SkinAge.src.data.augmentation import get_train_transforms, get_val_transforms # noqa: E402
+    from SkinAge.src.utils.reproducibility import set_seed, get_device                # noqa: E402
+    from SkinAge.src.utils.reproducibility import log_system_info                     # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Logging setup
 # ---------------------------------------------------------------------------
 
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s — %(name)s — %(levelname)s — %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -162,6 +171,20 @@ def _build_parser() -> argparse.ArgumentParser:
 # ---------------------------------------------------------------------------
 
 
+def _resolve_path(path_str: str) -> str:
+    """Resolve a path against CWD, _PROJECT_ROOT, and _REPO_ROOT."""
+    p = Path(path_str)
+    if p.exists():
+        return str(p)
+    p_proj = _PROJECT_ROOT / path_str
+    if p_proj.exists():
+        return str(p_proj)
+    p_repo = _REPO_ROOT / path_str
+    if p_repo.exists():
+        return str(p_repo)
+    return str(p)
+
+
 def _load_yaml(path: str) -> dict:
     """Load and return a YAML file as a dict.
 
@@ -180,7 +203,8 @@ def _load_yaml(path: str) -> dict:
     FileNotFoundError
         If the file does not exist.
     """
-    p = Path(path)
+    resolved = _resolve_path(path)
+    p = Path(resolved)
     if not p.exists():
         raise FileNotFoundError(
             f"Config file not found: {p.resolve()}. "
@@ -213,7 +237,7 @@ def _restore_checkpoint(
     checkpoint_path : str
         Path to the ``.pth`` checkpoint file.
     """
-    path = Path(checkpoint_path)
+    path = Path(_resolve_path(checkpoint_path))
     if not path.exists():
         raise FileNotFoundError(f"Checkpoint not found: {path.resolve()}")
     payload = torch.load(path, map_location="cpu", weights_only=False)
@@ -232,18 +256,23 @@ def _restore_checkpoint(
 
 
 def main() -> None:
-    """Training entry point — parse args, set up components, and train."""
+    """Training entry point - parse args, set up components, and train."""
     parser = _build_parser()
     args = parser.parse_args()
 
     # ------------------------------------------------------------------
     # 1. Load configuration files
     # ------------------------------------------------------------------
-    logger.info("Loading model config:  %s", args.config)
-    config: dict = _load_yaml(args.config)
+    config_path = _resolve_path(args.config)
+    data_config_path = _resolve_path(args.data_config)
+    splits_dir = _resolve_path(args.splits_dir)
+    data_dir = _resolve_path(args.data_dir)
 
-    logger.info("Loading data config:   %s", args.data_config)
-    data_config: dict = _load_yaml(args.data_config)
+    logger.info("Loading model config:  %s", config_path)
+    config: dict = _load_yaml(config_path)
+
+    logger.info("Loading data config:   %s", data_config_path)
+    data_config: dict = _load_yaml(data_config_path)
 
     # ------------------------------------------------------------------
     # 2. Reproducibility
@@ -264,11 +293,11 @@ def main() -> None:
     # ------------------------------------------------------------------
     # 4. Load train / val splits
     # ------------------------------------------------------------------
-    logger.info("Loading splits from: %s", args.splits_dir)
-    train_df, val_df, _test_df = load_splits(args.splits_dir)
+    logger.info("Loading splits from: %s", splits_dir)
+    train_df, val_df, _test_df = load_splits(splits_dir)
 
     logger.info(
-        "Dataset sizes — train: %d samples, val: %d samples",
+        "Dataset sizes - train: %d samples, val: %d samples",
         len(train_df),
         len(val_df),
     )
@@ -283,14 +312,12 @@ def main() -> None:
     train_transforms = get_train_transforms(image_size)
     val_transforms = get_val_transforms(image_size)
 
-    # pin_memory is beneficial only when data is loaded on CPU and
-    # transferred to a CUDA device.
     pin_memory: bool = device.type == "cuda"
 
     train_loader = build_dataloader(
         metadata_df=train_df,
         transform=train_transforms,
-        root_dir=args.data_dir,
+        root_dir=data_dir,
         batch_size=batch_size,
         num_workers=num_workers,
         shuffle=True,
@@ -300,7 +327,7 @@ def main() -> None:
     val_loader = build_dataloader(
         metadata_df=val_df,
         transform=val_transforms,
-        root_dir=args.data_dir,
+        root_dir=data_dir,
         batch_size=batch_size,
         num_workers=num_workers,
         shuffle=False,
@@ -309,7 +336,7 @@ def main() -> None:
     )
 
     logger.info(
-        "DataLoaders ready — train: %d batches, val: %d batches "
+        "DataLoaders ready - train: %d batches, val: %d batches "
         "(batch_size=%d, num_workers=%d)",
         len(train_loader),
         len(val_loader),
@@ -325,16 +352,21 @@ def main() -> None:
     # imports are Phase 2 deliverables built in parallel and are expected to
     # be available by the time this script is executed.
     try:
-        from SkinAge.src.models.skinage_model import SkinAgeModel
-        from SkinAge.src.models.losses import MultiTaskLoss, build_criterion
-        from SkinAge.src.models.trainer import SkinAgeTrainer
-    except ImportError as exc:
-        logger.error(
-            "Failed to import Phase 2 model modules. "
-            "Ensure skinage_model.py, losses.py, and trainer.py exist: %s",
-            exc,
-        )
-        sys.exit(1)
+        from src.models.skinage_model import SkinAgeModel
+        from src.models.losses import MultiTaskLoss, build_criterion
+        from src.models.trainer import SkinAgeTrainer
+    except ImportError:
+        try:
+            from SkinAge.src.models.skinage_model import SkinAgeModel
+            from SkinAge.src.models.losses import MultiTaskLoss, build_criterion
+            from SkinAge.src.models.trainer import SkinAgeTrainer
+        except ImportError as exc:
+            logger.error(
+                "Failed to import Phase 2 model modules. "
+                "Ensure skinage_model.py, losses.py, and trainer.py exist: %s",
+                exc,
+            )
+            sys.exit(1)
 
     logger.info("Building SkinAgeModel from config...")
     model = SkinAgeModel(config)
@@ -361,10 +393,10 @@ def main() -> None:
     # 8. Build loss criterion
     # ------------------------------------------------------------------
     # MultiTaskLoss constructor accepts (heatmap, quality, age) which map
-    # directly to the config['loss_weights'] keys — no key remapping needed.
+    # directly to the config['loss_weights'] keys - no key remapping needed.
     criterion = build_criterion(config)
     logger.info(
-        "MultiTaskLoss weights — heatmap=%.1f, quality=%.1f, age=%.1f",
+        "MultiTaskLoss weights - heatmap=%.1f, quality=%.1f, age=%.1f",
         criterion.w_heatmap,
         criterion.w_quality,
         criterion.w_age,
@@ -413,7 +445,7 @@ def main() -> None:
     print("=" * 60 + "\n")
 
     logger.info(
-        "Training summary — epochs=%d, best_val_loss=%s, checkpoint=%s",
+        "Training summary - epochs=%d, best_val_loss=%s, checkpoint=%s",
         total_epochs,
         f"{best_val_loss:.6f}" if best_val_loss is not None else "N/A",
         Path(output_dir) / "best_model.pth",
@@ -421,4 +453,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)

@@ -1,6 +1,6 @@
 """
 zone_extraction.py
-SkinAge ML — Facial zone extraction from MediaPipe Face Mesh landmarks.
+SkinAge ML - Facial zone extraction from MediaPipe Face Mesh landmarks.
 
 Extracts 7 clinically relevant facial zones from a 468-point landmark set:
     forehead, under_eyes, cheeks, nose, chin, crows_feet, nasolabial
@@ -144,7 +144,7 @@ class ZoneConfig:
                 return
             except Exception:
                 logger.warning(
-                    "Failed to parse %s — falling back to defaults.",
+                    "Failed to parse %s - falling back to defaults.",
                     self.config_path,
                     exc_info=True,
                 )
@@ -161,7 +161,7 @@ class ZoneConfig:
         for zone_name in ZONE_NAMES:
             entry = zones_block.get(zone_name)
             if entry is None:
-                logger.warning("Zone '%s' not found in config — using defaults.", zone_name)
+                logger.warning("Zone '%s' not found in config - using defaults.", zone_name)
                 self.zone_landmarks[zone_name] = _DEFAULT_ZONE_LANDMARKS.get(zone_name, [[]])
                 self.zone_colors[zone_name] = _DEFAULT_ZONE_COLORS.get(zone_name, (200, 200, 200))
                 self.zone_weights[zone_name] = 1.0
@@ -178,7 +178,7 @@ class ZoneConfig:
                 self.zone_landmarks[zone_name] = [left_lm, right_lm]
             else:
                 logger.warning(
-                    "Zone '%s' has unrecognised landmark structure — using defaults.",
+                    "Zone '%s' has unrecognised landmark structure - using defaults.",
                     zone_name,
                 )
                 self.zone_landmarks[zone_name] = _DEFAULT_ZONE_LANDMARKS.get(zone_name, [[]])
@@ -239,7 +239,7 @@ def _landmarks_to_pixel_coords(
         image_shape: ``(height, width)`` of the target image.
 
     Returns:
-        Integer pixel coordinates of shape ``(len(indices), 2)`` — columns
+        Integer pixel coordinates of shape ``(len(indices), 2)`` - columns
         are ``(x, y)``.
     """
     h, w = image_shape[:2]
@@ -329,7 +329,7 @@ def extract_zone_crop(
         padding: Extra pixels to add around the tight bounding box.
 
     Returns:
-        ``(cropped_image, cropped_mask)`` — the mask marks valid zone pixels
+        ``(cropped_image, cropped_mask)`` - the mask marks valid zone pixels
         within the crop (0/255).
     """
     h, w = image.shape[:2]
@@ -374,7 +374,7 @@ def _crop_from_mask(
 
     coords = cv2.findNonZero(mask)
     if coords is None:
-        logger.warning("Zone mask is empty — returning 1x1 placeholder crop.")
+        logger.warning("Zone mask is empty - returning 1x1 placeholder crop.")
         return (
             np.zeros((1, 1, 3), dtype=np.uint8) if image.ndim == 3
             else np.zeros((1, 1), dtype=np.uint8),
@@ -433,7 +433,7 @@ def extract_all_zones(
             zone_area = int(cv2.countNonZero(mask))
             if zone_area < config.min_zone_area:
                 logger.debug(
-                    "Zone '%s' area (%d px) below threshold (%d) — skipping.",
+                    "Zone '%s' area (%d px) below threshold (%d) - skipping.",
                     zone_name,
                     zone_area,
                     config.min_zone_area,
@@ -472,6 +472,47 @@ def extract_all_zones(
             logger.error("Failed to extract zone '%s'.", zone_name, exc_info=True)
 
     return results
+
+
+def detect_zone_occlusions(
+    image: np.ndarray,
+    landmarks: np.ndarray,
+    config: Optional[ZoneConfig] = None,
+) -> Dict[str, float]:
+    """Calculate skin visibility confidence [0.1, 1.0] per zone (detecting bangs/glasses/hair).
+
+    Returns a dict mapping zone name to confidence multiplier (1.0 = clear skin, <0.7 = occluded).
+    """
+    if image is None or landmarks is None:
+        return {z: 1.0 for z in ZONE_NAMES}
+
+    ycrcb = cv2.cvtColor(image, cv2.COLOR_BGR2YCrCb)
+    skin_mask = cv2.inRange(ycrcb, np.array([0, 133, 77]), np.array([255, 173, 127]))
+    zones = extract_all_zones(image, landmarks, config)
+    confidences: Dict[str, float] = {}
+
+    for zone_name in ZONE_NAMES:
+        if zone_name not in zones:
+            confidences[zone_name] = 1.0
+            continue
+        zres = zones[zone_name]
+        mask = zres.mask
+        crop = zres.crop
+        crop_ycrcb = cv2.cvtColor(crop, cv2.COLOR_BGR2YCrCb)
+        crop_skin = cv2.inRange(crop_ycrcb, np.array([0, 133, 77]), np.array([255, 173, 127]))
+
+        total_px = int(np.sum(mask > 0))
+        if total_px == 0:
+            confidences[zone_name] = 1.0
+            continue
+
+        skin_px = int(np.sum((mask > 0) & (crop_skin > 0)))
+        skin_ratio = skin_px / total_px
+        # Map skin_ratio: 0.8+ -> 1.0, 0.4 -> 0.5, <0.2 -> 0.2
+        confidence = float(np.clip(skin_ratio / 0.8, 0.2, 1.0))
+        confidences[zone_name] = round(confidence, 2)
+
+    return confidences
 
 
 def create_zone_overlay(

@@ -1,6 +1,6 @@
 # =============================================================================
 # api_config.yaml
-# SkinAge ML — API Server Settings, Quality Gates, and Inference Config
+# SkinAge ML - API Server Settings, Quality Gates, and Inference Config
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -30,24 +30,24 @@ upload:
 # Image Quality Gates
 # Images that fail any of these checks are rejected with an informative error
 # before inference is attempted. Thresholds are tuned to the training data
-# distribution — inputs outside these bounds produce unreliable predictions.
+# distribution - inputs outside these bounds produce unreliable predictions.
 #
-# face_confidence       — MediaPipe detection confidence; filters non-face images
-# max_yaw               — Maximum horizontal head rotation (degrees)
-# max_pitch             — Maximum vertical head rotation (degrees)
-# min_blur              — Laplacian variance floor; rejects motion/defocus blur
-# min_brightness        — Mean pixel intensity floor; rejects underexposed images
-# max_brightness        — Mean pixel intensity ceiling; rejects overexposed images
-# min_face_size         — Minimum bounding-box side length (pixels at 512px scale)
-# min_landmark_visibility — MediaPipe visibility score for required landmarks
+# face_confidence       - MediaPipe detection confidence; filters non-face images
+# max_yaw               - Maximum horizontal head rotation (degrees)
+# max_pitch             - Maximum vertical head rotation (degrees)
+# min_blur              - Laplacian variance floor; rejects motion/defocus blur
+# min_brightness        - Mean pixel intensity floor; rejects underexposed images
+# max_brightness        - Mean pixel intensity ceiling; rejects overexposed images
+# min_face_size         - Minimum bounding-box side length (pixels at 512px scale)
+# min_landmark_visibility - MediaPipe visibility score for required landmarks
 # -----------------------------------------------------------------------------
 quality_thresholds:
   face_confidence: 0.70
   max_yaw: 25               # Degrees; beyond this pose estimation degrades
   max_pitch: 20             # Degrees
   min_blur: 80              # Laplacian variance; lower = blurrier
-  min_brightness: 40        # 0–255 scale
-  max_brightness: 220       # 0–255 scale
+  min_brightness: 40        # 0-255 scale
+  max_brightness: 220       # 0-255 scale
   min_face_size: 200        # Pixels; ensures sufficient texture resolution
   min_landmark_visibility: 0.90  # Fraction of required landmarks clearly visible
 
@@ -64,7 +64,7 @@ model:
 # Inference Settings
 # device=auto selects CUDA if available, then MPS (Apple Silicon),
 # falling back to CPU. batch_timeout_ms controls the maximum time the server
-# waits to accumulate a micro-batch before dispatching — reduces GPU idle time
+# waits to accumulate a micro-batch before dispatching - reduces GPU idle time
 # under moderate load without significantly increasing p99 latency.
 # -----------------------------------------------------------------------------
 inference:

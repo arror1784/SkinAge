@@ -24,9 +24,9 @@ From a plain dict or defaults::
 
 Phase-1 / Phase-2 training pattern::
 
-    model.freeze_backbone()      # Phase 1 – heads only
+    model.freeze_backbone()      # Phase 1 - heads only
     train(model, phase1_loader)
-    model.unfreeze_backbone()    # Phase 2 – full fine-tune
+    model.unfreeze_backbone()    # Phase 2 - full fine-tune
     train(model, phase2_loader)
 """
 
@@ -92,8 +92,8 @@ class SkinAgeModel(nn.Module):
     Produces three outputs per forward pass:
 
     ``heatmaps``
-        Shape ``(B, 4, 512, 512)``.  Four spatial heatmaps — one per skin
-        concern (wrinkle, pigmentation, redness, pore_texture) — decoded by
+        Shape ``(B, 4, 512, 512)``.  Four spatial heatmaps - one per skin
+        concern (wrinkle, pigmentation, redness, pore_texture) - decoded by
         a U-Net head from the backbone skip features.
 
     ``quality``
@@ -160,7 +160,7 @@ class SkinAgeModel(nn.Module):
         )
 
         logger.info(
-            "SkinAgeModel initialised — backbone pretrained=%s, "
+            "SkinAgeModel initialised - backbone pretrained=%s, "
             "trainable params: %d",
             pretrained,
             self.count_parameters(trainable_only=True),
@@ -184,9 +184,9 @@ class SkinAgeModel(nn.Module):
         -------
         dict with keys ``"heatmaps"``, ``"quality"``, ``"age"``:
 
-        ``heatmaps``:  ``(B, 4, H, W)``  — spatial concern heatmaps
-        ``quality``:   ``(B, 28)``        — zone/concern quality scores
-        ``age``:       ``(B, 1)``         — biological skin-age estimate
+        ``heatmaps``:  ``(B, 4, H, W)``  - spatial concern heatmaps
+        ``quality``:   ``(B, 28)``        - zone/concern quality scores
+        ``age``:       ``(B, 1)``         - biological skin-age estimate
         """
         # 1. Extract multi-scale features and global pooled representation.
         features: List[torch.Tensor]
@@ -224,12 +224,29 @@ class SkinAgeModel(nn.Module):
         ``SkinAgeBackbone.train()`` is overridden to honour the frozen state.
         """
         self.backbone.freeze()
-        logger.info("Backbone encoder frozen — Phase-1 training mode.")
+        logger.info("Backbone encoder frozen - Phase-1 training mode.")
 
     def unfreeze_backbone(self) -> None:
         """Unfreeze backbone encoder weights for Phase-2 fine-tuning."""
         self.backbone.unfreeze()
-        logger.info("Backbone encoder unfrozen — Phase-2 fine-tuning mode.")
+        logger.info("Backbone encoder unfrozen - Phase-2 fine-tuning mode.")
+
+    def count_parameters(self, trainable_only: bool = False) -> int:
+        """Return the number of parameters in the model."""
+        if trainable_only:
+            return sum(p.numel() for p in self.parameters() if p.requires_grad)
+        return sum(p.numel() for p in self.parameters())
+
+    def param_count(self) -> Dict[str, int]:
+        """Return a breakdown of parameter counts per component."""
+        counts = {
+            "backbone": sum(p.numel() for p in self.backbone.parameters()),
+            "decoder": sum(p.numel() for p in self.decoder.parameters()),
+            "quality_head": sum(p.numel() for p in self.quality_head.parameters()),
+            "age_head": sum(p.numel() for p in self.age_head.parameters()),
+        }
+        counts["total"] = sum(counts.values())
+        return counts
 
     # ---------------------------------------------------------------------- #
     # Class-method constructors                                                #
@@ -287,7 +304,7 @@ class SkinAgeModel(nn.Module):
 
         qh_cfg = raw.get("quality_head", {})
         qh_layers: List[int] = qh_cfg.get("layers", [1408, 512, 28])
-        # layers = [in, hidden, out] — we expose the hidden dimension
+        # layers = [in, hidden, out] - we expose the hidden dimension
         cfg["quality_hidden"] = qh_layers[1] if len(qh_layers) >= 2 else 512
         cfg["quality_dropout"] = qh_cfg.get("dropout", 0.3)
 
@@ -337,10 +354,10 @@ class SkinAgeModel(nn.Module):
 
         The checkpoint dict contains at minimum:
 
-        ``epoch``            — completed epoch index
-        ``model_state_dict`` — ``nn.Module.state_dict()``
-        ``optimizer_state``  — raw optimizer ``state_dict()`` or ``None``
-        ``meta``             — caller-supplied extras (metrics, config, …)
+        ``epoch``            - completed epoch index
+        ``model_state_dict`` - ``nn.Module.state_dict()``
+        ``optimizer_state``  - raw optimizer ``state_dict()`` or ``None``
+        ``meta``             - caller-supplied extras (metrics, config, …)
 
         Parameters
         ----------

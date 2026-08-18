@@ -1,5 +1,5 @@
 """
-Page 3 — Before/After Comparison.
+Page 3 - Before/After Comparison.
 
 Upload two images (before/after) to compare skin quality scores side by side.
 Includes delta indicators and optional timeline visualization.
@@ -183,45 +183,41 @@ def render() -> None:
     st.divider()
 
     # Overall scores as styled stats
-    delta_class = "delta-positive" if overall_delta > 0 else "delta-negative" if overall_delta < 0 else "delta-neutral"
-    delta_sign = "+" if overall_delta > 0 else ""
+    delta_class = "delta-positive" if score_delta > 0 else "delta-negative" if score_delta < 0 else "delta-neutral"
+    delta_sign = "+" if score_delta > 0 else ""
 
-    st.markdown(
-        f"""
-        <div class="skin-stat-row">
-            <div class="skin-stat">
-                <div class="value" style="color:{COLORS['text_muted']};">{before_result['overall_score']:.1f}</div>
-                <div class="label">Before Score</div>
-            </div>
-            <div class="skin-stat">
-                <div class="value {delta_class}">{delta_sign}{overall_delta:.1f}</div>
-                <div class="label">Change</div>
-            </div>
-            <div class="skin-stat">
-                <div class="value" style="color:{COLORS['primary']};">{after_result['overall_score']:.1f}</div>
-                <div class="label">After Score</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    score_html = (
+        f'<div class="skin-stat-row" style="gap:80px;">'
+        f'<div class="skin-stat">'
+        f'<div class="value" style="color:{COLORS["accent"]};">{before_result["overall_score"]:.1f}</div>'
+        f'<div class="label">Before Score</div>'
+        f'</div>'
+        f'<div class="skin-stat">'
+        f'<div class="value {delta_class}">{delta_sign}{score_delta:.1f}</div>'
+        f'<div class="label">Score Change</div>'
+        f'</div>'
+        f'<div class="skin-stat">'
+        f'<div class="value" style="color:{COLORS["primary"]};">{after_result["overall_score"]:.1f}</div>'
+        f'<div class="label">After Score</div>'
+        f'</div>'
+        f'</div>'
     )
+    st.markdown(score_html, unsafe_allow_html=True)
 
     # Age comparison
-    st.markdown(
-        f"""
-        <div class="skin-stat-row" style="gap:80px;">
-            <div class="skin-stat">
-                <div class="value" style="font-size:24px;">{before_result['predicted_age']:.1f}<span style="font-size:14px;color:#8892B0;"> yrs</span></div>
-                <div class="label">Before Age</div>
-            </div>
-            <div class="skin-stat">
-                <div class="value" style="font-size:24px;">{after_result['predicted_age']:.1f}<span style="font-size:14px;color:#8892B0;"> yrs</span></div>
-                <div class="label">After Age</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    age_html = (
+        f'<div class="skin-stat-row" style="gap:80px;">'
+        f'<div class="skin-stat">'
+        f'<div class="value" style="font-size:24px;">{before_result["predicted_age"]:.1f}<span style="font-size:14px;color:#8892B0;"> yrs</span></div>'
+        f'<div class="label">Before Age</div>'
+        f'</div>'
+        f'<div class="skin-stat">'
+        f'<div class="value" style="font-size:24px;">{after_result["predicted_age"]:.1f}<span style="font-size:14px;color:#8892B0;"> yrs</span></div>'
+        f'<div class="label">After Age</div>'
+        f'</div>'
+        f'</div>'
     )
+    st.markdown(age_html, unsafe_allow_html=True)
 
     st.divider()
 

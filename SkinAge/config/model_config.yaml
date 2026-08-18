@@ -1,6 +1,6 @@
 # =============================================================================
 # model_config.yaml
-# SkinAge ML — Architecture and Training Hyperparameters
+# SkinAge ML - Architecture and Training Hyperparameters
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -14,7 +14,7 @@ backbone:
   feature_dim: 1408         # Output channel depth from the backbone stem
 
 # -----------------------------------------------------------------------------
-# UNet Decoder — Heatmap Branch
+# UNet Decoder - Heatmap Branch
 # Generates 4-channel spatial heatmaps (one per concern type) at the original
 # resolution. Four upsampling blocks progressively restore spatial detail lost
 # during backbone downsampling.
@@ -25,7 +25,7 @@ unet_decoder:
   activation: sigmoid       # Bound heatmap values to [0, 1]
 
 # -----------------------------------------------------------------------------
-# Quality Head — Per-Zone Concern Scores
+# Quality Head - Per-Zone Concern Scores
 # Maps global backbone features to 28 scalar scores:
 # 7 facial zones x 4 concern types = 28 outputs.
 # sigmoid_x_100 rescales sigmoid output to a human-readable [0, 100] range.
@@ -33,10 +33,10 @@ unet_decoder:
 quality_head:
   layers: [1408, 512, 28]
   dropout: 0.3
-  activation: sigmoid_x_100  # sigmoid(x) * 100 → score in [0, 100]
+  activation: sigmoid_x_100  # sigmoid(x) * 100 -> score in [0, 100]
 
 # -----------------------------------------------------------------------------
-# Age Head — Biological Skin Age Regression
+# Age Head - Biological Skin Age Regression
 # Single scalar output; ReLU ensures non-negative age predictions.
 # -----------------------------------------------------------------------------
 age_head:
@@ -46,7 +46,7 @@ age_head:
 
 # -----------------------------------------------------------------------------
 # Multi-Task Loss Weights
-# Quality is weighted highest — accurate zone scores are the core product
+# Quality is weighted highest - accurate zone scores are the core product
 # deliverable. Age contributes auxiliary supervision to guide representation
 # learning. Heatmap loss anchors spatial attention.
 # -----------------------------------------------------------------------------
@@ -56,7 +56,7 @@ loss_weights:
   age: 1.5
 
 # -----------------------------------------------------------------------------
-# Training Schedule — Two-Phase Strategy
+# Training Schedule - Two-Phase Strategy
 # Phase 1: Train heads only with a frozen backbone to warm-start the task
 #          heads before fine-tuning corrupts pretrained features.
 # Phase 2: Unfreeze backbone and fine-tune end-to-end at a low learning rate
@@ -69,7 +69,7 @@ training:
     backbone_frozen: true    # Only task heads receive gradients
 
   phase2:
-    epochs: 30
+    epochs: 15
     learning_rate: 5.0e-5
     backbone_frozen: false   # Full end-to-end fine-tuning
     lr_scheduler:
@@ -90,8 +90,8 @@ early_stopping:
 # Data Loading
 # -----------------------------------------------------------------------------
 dataloader:
-  batch_size: 16
-  num_workers: 4
+  batch_size: 8
+  num_workers: 0
 
 # -----------------------------------------------------------------------------
 # Optimizer

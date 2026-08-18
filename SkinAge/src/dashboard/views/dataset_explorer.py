@@ -1,5 +1,5 @@
 """
-Page 5 — Dataset Explorer.
+Page 5 - Dataset Explorer.
 
 Browse the training dataset by filters:
     - Age range slider

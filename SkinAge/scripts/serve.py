@@ -87,7 +87,7 @@ def main() -> None:
     if args.demo:
         log = logging.getLogger("serve")
         log.info("=" * 50)
-        log.info("  DEMO MODE — mock predictions enabled")
+        log.info("  DEMO MODE - mock predictions enabled")
         log.info("  No trained model or MediaPipe required")
         log.info("  Upload any face photo to see results")
         log.info("=" * 50)

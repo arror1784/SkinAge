@@ -1,0 +1,49 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.coverage
+.pytest_cache/
+htmlcov/
+
+# Packages & Zips
+*.zip
+*.tar.gz
+
+# Data
+data/
+/data/
+SkinAge/data/
+*.npy
+*.pkl
+
+# Models & Outputs
+outputs/
+/outputs/
+SkinAge/outputs/
+*.pth
+*.onnx
+*.pt
+*.bin
+*.ckpt
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Temporary Scripts
+SkinAge/scripts/debug_train_step.py
+SkinAge/scripts/test_trainer_call.py

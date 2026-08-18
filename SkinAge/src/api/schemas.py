@@ -76,6 +76,46 @@ class ZoneScore(BaseModel):
     concerns: List[ConcernDetail] = Field(default_factory=list, description="Per-concern scores")
     composite_score: float = Field(..., ge=0, le=100, description="Composite zone score 0-100")
     label: str = Field(..., description="Score label (Excellent, Great, Good, Fair, etc.)")
+    occlusion_confidence: float = Field(default=1.0, ge=0.0, le=1.0, description="Occlusion/visibility confidence (1.0 = clear)")
+
+
+# ---------------------------------------------------------------------------
+# Summary & Aggregates
+# ---------------------------------------------------------------------------
+
+class SummaryMetrics(BaseModel):
+    """Macro-level skin health summary."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    predicted_skin_age: float = Field(..., ge=0, description="Predicted biological skin age in years")
+    actual_age: Optional[int] = Field(None, ge=0, description="User chronological age in years")
+    age_delta: Optional[float] = Field(None, description="Predicted age minus chronological age")
+    overall_score: float = Field(..., ge=0, le=100, description="Weighted overall skin quality score")
+    skin_health_grade: str = Field(..., description="Overall grade label (Excellent, Great, Good, Fair, etc.)")
+
+
+class PriorityConcernItem(BaseModel):
+    """Ranked item of lowest scoring zone and concern."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    rank: int = Field(..., ge=1, le=10, description="Priority rank (1 = lowest score)")
+    zone: str = Field(..., description="Facial zone identifier")
+    concern: str = Field(..., description="Concern type (wrinkle, pore_texture, pigmentation, redness)")
+    score: float = Field(..., ge=0, le=100, description="Score 0-100")
+    severity: str = Field(..., description="Severity category (minimal, mild, moderate, significant)")
+
+
+class AggregateMetrics(BaseModel):
+    """Objective facial zone and concern aggregations for client service consumption."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    t_zone_score: float = Field(..., ge=0, le=100, description="Mean composite score for T-zone (forehead, nose)")
+    u_zone_score: float = Field(..., ge=0, le=100, description="Mean composite score for U-zone (cheeks, chin)")
+    concern_averages: Dict[str, float] = Field(default_factory=dict, description="Mean score per concern across face")
+    priority_concerns: List[PriorityConcernItem] = Field(default_factory=list, description="Top lowest scoring concerns")
 
 
 # ---------------------------------------------------------------------------
@@ -113,18 +153,17 @@ class ProcessingMetadata(BaseModel):
 # ---------------------------------------------------------------------------
 
 class AnalyzeResponse(BaseModel):
-    """Full analysis result for a single image."""
+    """Pure objective skin diagnostic data for single image analysis."""
 
     model_config = ConfigDict(populate_by_name=True)
 
-    zone_scores: List[ZoneScore] = Field(..., description="Per-zone quality scores")
+    zone_scores: List[ZoneScore] = Field(..., description="28 fine-grained facial zone metrics (7 zones x 4 concerns)")
+    summary: Optional[SummaryMetrics] = Field(None, description="Macro-level skin age and overall score summary")
+    aggregate_metrics: Optional[AggregateMetrics] = Field(None, description="Objective spatial and concern aggregate metrics")
     heatmaps: Optional[HeatmapData] = Field(None, description="Heatmap overlays (if requested)")
-    predicted_age: float = Field(..., ge=0, description="Predicted biological skin age in years")
-    age_delta: Optional[float] = Field(
-        None,
-        description="Predicted age minus chronological age (positive = skin looks older)",
-    )
-    overall_score: float = Field(..., ge=0, le=100, description="Weighted overall skin quality score")
+    predicted_age: float = Field(..., ge=0, description="Predicted biological skin age in years (convenience alias)")
+    age_delta: Optional[float] = Field(None, description="Predicted age minus chronological age (convenience alias)")
+    overall_score: float = Field(..., ge=0, le=100, description="Weighted overall skin quality score (convenience alias)")
     metadata: ProcessingMetadata = Field(..., description="Processing metadata")
 
 

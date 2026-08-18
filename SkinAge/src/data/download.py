@@ -1,6 +1,6 @@
 """
 download.py
-SkinAge ML — Dataset Download and Organisation
+SkinAge ML - Dataset Download and Organisation
 
 Handles acquiring and organising four datasets used in the SkinAge pipeline:
 
@@ -68,7 +68,7 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Constants — kept here so the module works without a config file
+# Constants - kept here so the module works without a config file
 # ---------------------------------------------------------------------------
 
 _DEFAULT_CONFIG_PATH = (
@@ -79,19 +79,17 @@ _DEFAULT_CONFIG_PATH = (
 # The official Kaggle link requires authentication; this mirror is sufficient
 # for research use. The filename encodes age_gender_race_datetime.jpg.
 _UTKFACE_URLS: list[str] = [
-    "https://github.com/asmith26/UTKFace/releases/download/v1.0/UTKFace.tar.gz",
-    # Fallback: Kaggle API (requires KAGGLE_USERNAME / KAGGLE_KEY env vars)
-    # "kaggle:jangedoo/utkface-new",
+    "https://huggingface.co/datasets/py97/UTKFace-Cropped/resolve/main/UTKFace.tar.gz",
 ]
 
-# CelebA — the aligned images archive is hosted on a Google Drive mirror via
+# CelebA - the aligned images archive is hosted on a Google Drive mirror via
 # academic distribution. The attributes and identity files are small and hosted
 # on the official repo.
 _CELEBA_BASE_URL = "https://huggingface.co/datasets/KaraAgrowal/celebA/resolve/main"
 _CELEBA_ATTRS_URL = "https://raw.githubusercontent.com/switchablenorms/CelebAMask-HQ/master/face_parsing/Data_preprocessing/list_attr_celeba.txt"
 _CELEBA_IDENTITY_URL = "https://huggingface.co/datasets/KaraAgrowal/celebA/resolve/main/identity_CelebA.txt"
 
-# Fitzpatrick17k — official repository on GitHub
+# Fitzpatrick17k - official repository on GitHub
 _FITZPATRICK17K_CSV_URL = (
     "https://raw.githubusercontent.com/mattgroh/fitzpatrick17k/main/fitzpatrick17k.csv"
 )
@@ -153,7 +151,7 @@ def load_config(config_path: Optional[Path] = None) -> dict[str, Any]:
     path = config_path or _DEFAULT_CONFIG_PATH
     if not path.is_file():
         logger.warning(
-            "Config file not found at %s — using built-in defaults.", path
+            "Config file not found at %s - using built-in defaults.", path
         )
         return {}
     with path.open("r", encoding="utf-8") as fh:
@@ -236,7 +234,7 @@ def _download_file(
                 timeout=(_CONNECT_TIMEOUT_S, _READ_TIMEOUT_S),
             )
 
-            # 416 Range Not Satisfiable — file is already complete
+            # 416 Range Not Satisfiable - file is already complete
             if response.status_code == 416:
                 logger.info("%s already fully downloaded.", label)
                 return dest
@@ -300,7 +298,7 @@ def _download_file(
                     f"Failed to download {label} after {_MAX_RETRIES} attempts."
                 ) from exc
 
-    # unreachable — kept for type checker
+    # unreachable - kept for type checker
     return dest  # pragma: no cover
 
 
@@ -335,7 +333,7 @@ def _extract_archive(archive_path: Path, dest_dir: Path) -> None:
             f"Unsupported archive format: '{suffix}' ({archive_path.name})."
         )
 
-    logger.info("Extraction complete → %s", dest_dir)
+    logger.info("Extraction complete -> %s", dest_dir)
 
 
 # ---------------------------------------------------------------------------
@@ -354,7 +352,7 @@ def _write_csv(
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
-    logger.info("Wrote %d rows → %s", len(rows), dest)
+    logger.info("Wrote %d rows -> %s", len(rows), dest)
 
 
 # ---------------------------------------------------------------------------
@@ -389,8 +387,8 @@ def download_utkface(data_dir: Path, config: Optional[dict[str, Any]] = None) ->
     Download and organise the UTKFace dataset.
 
     Creates:
-        <data_dir>/utkface/images/   — all .jpg images
-        <data_dir>/utkface/metadata.csv — path, age, gender, ethnicity
+        <data_dir>/utkface/images/   - all .jpg images
+        <data_dir>/utkface/metadata.csv - path, age, gender, ethnicity
 
     Parameters
     ----------
@@ -454,13 +452,15 @@ def download_utkface(data_dir: Path, config: Optional[dict[str, Any]] = None) ->
                 f"UTKFace archive is corrupt or unreadable: {exc}"
             ) from exc
 
-        # The archive typically extracts to UTKFace/ subfolder; flatten it.
-        extracted_subdir = dataset_dir / "UTKFace"
-        if extracted_subdir.is_dir():
-            for img in extracted_subdir.glob("*.jpg"):
-                shutil.move(str(img), images_dir / img.name)
-            shutil.rmtree(extracted_subdir, ignore_errors=True)
-            logger.info("Flattened UTKFace/ subfolder into images/")
+        # The archive may extract to UTKFace/ or other subfolders; flatten them into images/
+        for item in list(dataset_dir.iterdir()):
+            if item.is_dir() and item != images_dir:
+                for img in item.rglob("*.jpg"):
+                    dest_file = images_dir / img.name
+                    if not dest_file.exists():
+                        shutil.move(str(img), dest_file)
+                shutil.rmtree(item, ignore_errors=True)
+                logger.info("Flattened %s subfolder into images/", item.name)
 
         # Clean up archive to save disk space (optional; skip if config says keep)
         if not cfg.get("keep_archive", False) and archive_path.is_file():
@@ -511,30 +511,30 @@ def download_utkface(data_dir: Path, config: Optional[dict[str, Any]] = None) ->
 # ---------------------------------------------------------------------------
 
 _FFHQ_MANUAL_INSTRUCTIONS = """
-FFHQ (Flickr-Faces-HQ) — Manual Download Required
+FFHQ (Flickr-Faces-HQ) - Manual Download Required
 ===================================================
 
 FFHQ is distributed under CC BY-NC-SA 4.0.  The full 70 K dataset requires
 access to the official Google Drive folder; the thumbnails subset (which we
 use) is also available via Kaggle with an authenticated download.
 
-Option 1 — Kaggle (recommended, requires free account):
+Option 1 - Kaggle (recommended, requires free account):
   1. Install kaggle CLI:        pip install kaggle
   2. Create API token at:       https://www.kaggle.com/settings/account
-     (download kaggle.json → ~/.kaggle/kaggle.json)
+     (download kaggle.json -> ~/.kaggle/kaggle.json)
   3. Run:
        kaggle datasets download -d arnaud58/flickrfaceshq-dataset-ffhq
        # or for thumbnails only:
        kaggle datasets download -d greatgamedota/ffhq-face-data-set
   4. Extract archives into:     {dest_dir}
 
-Option 2 — Official Google Drive:
+Option 2 - Official Google Drive:
   The NVLabs gdrive mirror:
     https://drive.google.com/drive/folders/1tZUcXDBeOibC6jcMCtgRRz67pzrAHeHL
   Download thumbnails128x128.zip (or thumbnails256x256.zip) and extract into:
     {dest_dir}
 
-Option 3 — HuggingFace Hub:
+Option 3 - HuggingFace Hub:
     huggingface-cli download --repo-type dataset trimble-vision/FFHQ-Faces \\
         --include "thumbnails128x128/*" --local-dir {dest_dir}
 
@@ -552,8 +552,8 @@ def download_ffhq(
     Organise the FFHQ thumbnails subset.
 
     FFHQ requires authenticated access to Google Drive / Kaggle.  This function
-    prints detailed manual download instructions and — if images are already
-    present — generates the metadata CSV from whatever is on disk.
+    prints detailed manual download instructions and - if images are already
+    present - generates the metadata CSV from whatever is on disk.
 
     Parameters
     ----------
@@ -608,13 +608,13 @@ def download_ffhq(
 # ---------------------------------------------------------------------------
 
 _CELEBA_MANUAL_INSTRUCTIONS = """
-CelebA — Aligned Images Require Manual Download
+CelebA - Aligned Images Require Manual Download
 ================================================
 
 The img_align_celeba.zip (~1.4 GB) is hosted on Google Drive and requires
 authentication.  The attribute/identity files will be downloaded automatically.
 
-Recommended approach — Kaggle:
+Recommended approach - Kaggle:
   1. pip install kaggle  (if not already installed)
   2. kaggle datasets download -d jessicali9530/celeba-dataset
   3. Extract img_align_celeba.zip into:
@@ -668,7 +668,7 @@ def _parse_celeba_attrs(
     -------
     (attr_names, attrs_by_filename)
         attr_names: list of all 40 attribute names
-        attrs_by_filename: dict mapping filename → {attr: 0/1, …}
+        attrs_by_filename: dict mapping filename -> {attr: 0/1, …}
     """
     attrs_by_filename: dict[str, dict[str, int]] = {}
     attr_names: list[str] = []
@@ -873,7 +873,7 @@ def _download_fitzpatrick_images(
     if failed > 0:
         logger.warning(
             "Fitzpatrick17k: %d/%d images failed to download "
-            "(expected — some hosting URLs are broken).",
+            "(expected - some hosting URLs are broken).",
             failed,
             len(rows),
         )
@@ -916,7 +916,7 @@ def download_fitzpatrick17k(
     dermascan_dir = data_dir.parent.parent.parent / "DermaScan" / "data" / "raw" / "fitzpatrick17k"
     if dermascan_dir.is_dir():
         logger.info(
-            "Found DermaScan fitzpatrick17k at %s — skipping redundant download.",
+            "Found DermaScan fitzpatrick17k at %s - skipping redundant download.",
             dermascan_dir,
         )
         # Still build our own metadata CSV pointing to the shared images
@@ -1138,7 +1138,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="download",
         description=(
-            "SkinAge ML — download and organise training datasets.\n\n"
+            "SkinAge ML - download and organise training datasets.\n\n"
             "Datasets that require manual download (FFHQ, CelebA images) will "
             "print clear instructions and skip the automated step."
         ),

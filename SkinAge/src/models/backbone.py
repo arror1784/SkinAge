@@ -41,7 +41,7 @@ class SkinAgeBackbone(nn.Module):
         super().__init__()
 
         # ------------------------------------------------------------------
-        # 1. Feature extractor — provides the 5 intermediate skip maps.
+        # 1. Feature extractor - provides the 5 intermediate skip maps.
         # ------------------------------------------------------------------
         self.encoder: nn.Module = timm.create_model(
             "efficientnet_b2",
@@ -50,7 +50,7 @@ class SkinAgeBackbone(nn.Module):
         )
 
         # ------------------------------------------------------------------
-        # 2. Pooling head — borrowed from the full (non-features_only) model.
+        # 2. Pooling head - borrowed from the full (non-features_only) model.
         #    We copy conv_head / bn2 / act2 then immediately discard the
         #    heavy full model so it does not occupy GPU memory.
         # ------------------------------------------------------------------
@@ -64,7 +64,7 @@ class SkinAgeBackbone(nn.Module):
         # pre-logits representation in the standard EfficientNet-B2 model.
         self.conv_head = _full_model.conv_head   # 352 -> 1408, kernel 1x1
         self.bn2 = _full_model.bn2
-        self.act2 = _full_model.act2
+        self.act2 = getattr(_full_model, "act2", nn.Identity())
 
         # Release the full model immediately.
         del _full_model
@@ -127,7 +127,7 @@ class SkinAgeBackbone(nn.Module):
             param.requires_grad = True
 
     # ------------------------------------------------------------------
-    # train() override — CRITICAL for frozen-BN correctness
+    # train() override - CRITICAL for frozen-BN correctness
     # ------------------------------------------------------------------
 
     def train(self, mode: bool = True) -> "SkinAgeBackbone":

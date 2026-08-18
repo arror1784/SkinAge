@@ -80,9 +80,9 @@ def get_device() -> "torch.device":
     """Auto-detect and return the best available compute device.
 
     Resolution order:
-    1. CUDA (``cuda:0``) — if ``torch.cuda.is_available()``
-    2. Apple MPS (``mps``) — if ``torch.backends.mps.is_available()``
-    3. CPU (``cpu``) — fallback
+    1. CUDA (``cuda:0``) - if ``torch.cuda.is_available()``
+    2. Apple MPS (``mps``) - if ``torch.backends.mps.is_available()``
+    3. CPU (``cpu``) - fallback
 
     Returns
     -------

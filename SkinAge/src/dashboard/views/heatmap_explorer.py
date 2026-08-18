@@ -1,5 +1,5 @@
 """
-Page 2 — Heatmap Explorer.
+Page 2 - Heatmap Explorer.
 
 Full-size heatmap overlays on the face image with:
     - Radio buttons to toggle concern type

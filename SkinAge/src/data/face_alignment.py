@@ -110,6 +110,43 @@ def detect_face(image: np.ndarray) -> Optional[FaceDetection]:
         return best
 
 
+def decode_image_bytes(image_bytes: bytes) -> Optional[np.ndarray]:
+    """Decode raw image bytes with EXIF orientation correction, returning BGR array."""
+    import io
+    from PIL import Image, ImageOps
+
+    try:
+        pil_img = Image.open(io.BytesIO(image_bytes))
+        pil_img = ImageOps.exif_transpose(pil_img)
+        if pil_img.mode != "RGB":
+            pil_img = pil_img.convert("RGB")
+        return cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+    except Exception:
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        return cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+
+import threading
+
+_FACE_MESH_SINGLETON = None
+_FACE_MESH_LOCK = threading.Lock()
+
+
+def _get_face_mesh():
+    """Return a process-wide singleton FaceMesh instance to avoid re-init overhead."""
+    global _FACE_MESH_SINGLETON
+    if _FACE_MESH_SINGLETON is None:
+        with _FACE_MESH_LOCK:
+            if _FACE_MESH_SINGLETON is None:
+                _FACE_MESH_SINGLETON = mp.solutions.face_mesh.FaceMesh(
+                    static_image_mode=True,
+                    max_num_faces=1,
+                    refine_landmarks=True,
+                    min_detection_confidence=0.5,
+                )
+    return _FACE_MESH_SINGLETON
+
+
 def get_landmarks(image: np.ndarray) -> Optional[np.ndarray]:
     """Extract 468 face-mesh landmarks and return pixel coordinates.
 
@@ -121,27 +158,60 @@ def get_landmarks(image: np.ndarray) -> Optional[np.ndarray]:
         return None
 
     h, w = image.shape[:2]
+    face_mesh = _get_face_mesh()
+    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-    with mp.solutions.face_mesh.FaceMesh(
-        static_image_mode=True,
-        max_num_faces=1,
-        refine_landmarks=True,
-        min_detection_confidence=DETECTION_CONFIDENCE_THRESHOLD,
-    ) as face_mesh:
-        rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    with _FACE_MESH_LOCK:
         results = face_mesh.process(rgb)
 
-        if not results.multi_face_landmarks:
-            logger.debug("No face mesh detected.")
-            return None
+    if not results.multi_face_landmarks:
+        logger.debug("No face mesh detected at 0 deg.")
+        return None
 
-        face = results.multi_face_landmarks[0]
-        landmarks = np.array(
-            [[lm.x * w, lm.y * h] for lm in face.landmark],
-            dtype=np.float32,
-        )  # (468, 2)
+    face = results.multi_face_landmarks[0]
+    landmarks = np.array(
+        [[lm.x * w, lm.y * h] for lm in face.landmark],
+        dtype=np.float32,
+    )  # (468, 2)
 
-        return landmarks
+    return landmarks
+
+
+def get_landmarks_robust(image: np.ndarray) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+    """Extract landmarks, automatically rotating image by 0/90/180/270 deg if needed.
+
+    Returns (oriented_image, landmarks).
+    """
+    if image is None or image.size == 0:
+        return image, None
+
+    # Try 0 deg
+    lms = get_landmarks(image)
+    if lms is not None:
+        return image, lms
+
+    # Try 180 deg (common for upside-down selfies)
+    img_180 = cv2.rotate(image, cv2.ROTATE_180)
+    lms_180 = get_landmarks(img_180)
+    if lms_180 is not None:
+        logger.info("Face detected after 180 deg rotation.")
+        return img_180, lms_180
+
+    # Try 90 deg clockwise
+    img_90 = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+    lms_90 = get_landmarks(img_90)
+    if lms_90 is not None:
+        logger.info("Face detected after 90 deg rotation.")
+        return img_90, lms_90
+
+    # Try 270 deg clockwise
+    img_270 = cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    lms_270 = get_landmarks(img_270)
+    if lms_270 is not None:
+        logger.info("Face detected after 270 deg rotation.")
+        return img_270, lms_270
+
+    return image, None
 
 
 def _eye_centres(landmarks: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:

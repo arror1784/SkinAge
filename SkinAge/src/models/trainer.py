@@ -3,12 +3,12 @@ Two-phase training loop for the SkinAge multi-task model.
 
 Training strategy
 -----------------
-Phase 1 — Backbone frozen (3 epochs, LR 1e-3)
+Phase 1 - Backbone frozen (3 epochs, LR 1e-3)
     Only task heads receive gradients.  The EfficientNet-B2 encoder runs in
     eval mode so its BatchNorm running statistics are not corrupted before
     fine-tuning begins.  AdamW optimises only the unfrozen parameters.
 
-Phase 2 — Full fine-tune (up to 30 epochs, LR 5e-5)
+Phase 2 - Full fine-tune (up to 30 epochs, LR 5e-5)
     Backbone is unfrozen.  A *new* AdamW optimizer is constructed so momentum
     buffers do not carry stale Phase-1 values into Phase-2.  CosineAnnealingLR
     decays the learning rate to eta_min=1e-6 over T_max epochs.  EarlyStopping
@@ -128,7 +128,7 @@ class EarlyStopping:
             ``False`` otherwise.
         """
         if self.best_loss is None:
-            # First call — always an improvement.
+            # First call - always an improvement.
             self.best_loss = val_loss
             return True
 
@@ -193,7 +193,7 @@ class SkinAgeTrainer:
 
     def __init__(
         self,
-        model: Any,  # SkinAgeModel — typed as Any to avoid circular import at module level
+        model: Any,  # SkinAgeModel - typed as Any to avoid circular import at module level
         criterion: Any,  # MultiTaskLoss
         config: Dict[str, Any],
         device: torch.device,
@@ -245,7 +245,7 @@ class SkinAgeTrainer:
         """
         start = time.time()
         logger.info("=" * 60)
-        logger.info("Starting SkinAge training — two-phase strategy")
+        logger.info("Starting SkinAge training - two-phase strategy")
         logger.info("Device: %s", self.device)
         logger.info("Mixed precision (AMP): %s", self._use_amp)
         logger.info("Output directory: %s", self.output_dir)
@@ -290,7 +290,7 @@ class SkinAgeTrainer:
         lr: float = phase_cfg["learning_rate"]
 
         logger.info("-" * 60)
-        logger.info("Phase 1 — Frozen backbone, %d epochs, LR=%.1e", n_epochs, lr)
+        logger.info("Phase 1 - Frozen backbone, %d epochs, LR=%.1e", n_epochs, lr)
 
         self.model.freeze_backbone()
 
@@ -310,12 +310,28 @@ class SkinAgeTrainer:
                 train_loader, optimizer, epoch=epoch, phase="Phase1"
             )
             val_losses = self._validate_epoch(val_loader, epoch=epoch, phase="Phase1")
+
+            val_total: float = val_losses["total"]
+
+            # Save best checkpoint if Phase 1 beats all prior checkpoints.
+            if self.best_val_loss is None or val_total < self.best_val_loss:
+                self.best_val_loss = val_total
+                self._save_checkpoint(
+                    epoch=self._global_epoch,
+                    val_loss=val_total,
+                    optimizer=optimizer,
+                    filename="best_model.pth",
+                )
+                logger.info(
+                    "  Checkpoint saved - new best val loss: %.6f", val_total
+                )
+
             self._record_epoch(
                 phase="Phase1",
                 epoch=epoch,
                 train_losses=train_losses,
                 val_losses=val_losses,
-                lr=optimizer.param_groups[0]["lr"],
+                lr=lr,
             )
             self._global_epoch += 1
 
@@ -334,13 +350,13 @@ class SkinAgeTrainer:
 
         logger.info("-" * 60)
         logger.info(
-            "Phase 2 — Full fine-tune, up to %d epochs, LR=%.1e → %.1e",
+            "Phase 2 - Full fine-tune, up to %d epochs, LR=%.1e -> %.1e",
             n_epochs, lr, eta_min,
         )
 
         self.model.unfreeze_backbone()
 
-        # Fresh optimizer — new momentum buffers for all parameters.
+        # Fresh optimizer - new momentum buffers for all parameters.
         optimizer = torch.optim.AdamW(
             self.model.parameters(),
             lr=lr,
@@ -383,7 +399,7 @@ class SkinAgeTrainer:
                     filename="best_model.pth",
                 )
                 logger.info(
-                    "  Checkpoint saved — new best val loss: %.6f", val_total
+                    "  Checkpoint saved - new best val loss: %.6f", val_total
                 )
 
             self._record_epoch(
@@ -673,13 +689,13 @@ class SkinAgeTrainer:
         The checkpoint dict contains everything needed to resume training or
         perform offline evaluation:
 
-        - ``model_state_dict`` — model weights.
-        - ``optimizer_state_dict`` — optimizer state (momentum buffers, etc.).
-        - ``scaler_state_dict`` — GradScaler state (for AMP resumption).
-        - ``epoch`` — global epoch at the time of saving.
-        - ``val_loss`` — validation composite loss for this checkpoint.
-        - ``config`` — full model_config.yaml dict for reproducibility.
-        - ``history`` — snapshot of training history up to this checkpoint.
+        - ``model_state_dict`` - model weights.
+        - ``optimizer_state_dict`` - optimizer state (momentum buffers, etc.).
+        - ``scaler_state_dict`` - GradScaler state (for AMP resumption).
+        - ``epoch`` - global epoch at the time of saving.
+        - ``val_loss`` - validation composite loss for this checkpoint.
+        - ``config`` - full model_config.yaml dict for reproducibility.
+        - ``history`` - snapshot of training history up to this checkpoint.
 
         Parameters
         ----------

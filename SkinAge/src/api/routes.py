@@ -2,9 +2,9 @@
 FastAPI route definitions for the SkinAge API.
 
 Endpoints:
-    POST /api/v1/analyze  — Single image analysis
-    POST /api/v1/compare  — Before/after comparison
-    GET  /api/v1/health   — Health check
+    POST /api/v1/analyze  - Single image analysis
+    POST /api/v1/compare  - Before/after comparison
+    GET  /api/v1/health   - Health check
 """
 
 from __future__ import annotations

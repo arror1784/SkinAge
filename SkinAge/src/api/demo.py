@@ -66,7 +66,7 @@ ZONE_WEIGHTS: Dict[str, float] = {
     "nasolabial": 1.0,
 }
 
-# Realistic score ranges per zone (min, max) — cheeks tend lower, forehead higher
+# Realistic score ranges per zone (min, max) - cheeks tend lower, forehead higher
 ZONE_SCORE_PROFILES: Dict[str, tuple[float, float]] = {
     "forehead": (62, 88),
     "under_eyes": (55, 82),
@@ -77,7 +77,7 @@ ZONE_SCORE_PROFILES: Dict[str, tuple[float, float]] = {
     "nasolabial": (52, 78),
 }
 
-# Concern modifiers — some concerns score differently per zone
+# Concern modifiers - some concerns score differently per zone
 CONCERN_OFFSETS: Dict[str, float] = {
     "wrinkle": -3.0,
     "pigmentation": 2.0,
@@ -183,7 +183,7 @@ class DemoInferencePipeline:
         self.device = "demo"
         self._model_version = "1.0.0-demo"
         self.input_size = 512
-        logger.info("DemoInferencePipeline initialized — no model loaded.")
+        logger.info("DemoInferencePipeline initialized - no model loaded.")
 
     def run(
         self,
@@ -282,6 +282,51 @@ class DemoInferencePipeline:
             predicted_age = round(rng.uniform(25, 42), 1)
             age_delta = None
 
+        from .schemas import SummaryMetrics, AggregateMetrics, PriorityConcernItem
+
+        summary = SummaryMetrics(
+            predicted_skin_age=predicted_age,
+            actual_age=age,
+            age_delta=age_delta,
+            overall_score=overall_score,
+            skin_health_grade=score_to_label(overall_score),
+        )
+
+        t_zones = [zs.composite_score for zs in zone_scores if zs.zone in ["forehead", "nose"]]
+        u_zones = [zs.composite_score for zs in zone_scores if zs.zone in ["cheeks", "chin"]]
+        t_zone_score = round(float(np.mean(t_zones)), 1) if t_zones else 0.0
+        u_zone_score = round(float(np.mean(u_zones)), 1) if u_zones else 0.0
+
+        concern_averages: Dict[str, float] = {}
+        for c_name in CONCERN_TYPES:
+            c_scores = [cd.score for zs in zone_scores for cd in zs.concerns if cd.concern == c_name]
+            concern_averages[c_name] = round(float(np.mean(c_scores)), 1) if c_scores else 0.0
+
+        concern_candidates = []
+        for zs in zone_scores:
+            for cd in zs.concerns:
+                concern_candidates.append((cd.score, zs.zone, cd.concern, cd.severity))
+        concern_candidates.sort(key=lambda x: x[0])
+
+        priority_concerns: List[PriorityConcernItem] = []
+        for rank_idx, (c_score, c_zone, c_name, c_sev) in enumerate(concern_candidates[:3], start=1):
+            priority_concerns.append(
+                PriorityConcernItem(
+                    rank=rank_idx,
+                    zone=c_zone,
+                    concern=c_name,
+                    score=round(c_score, 1),
+                    severity=c_sev,
+                )
+            )
+
+        aggregate_metrics = AggregateMetrics(
+            t_zone_score=t_zone_score,
+            u_zone_score=u_zone_score,
+            concern_averages=concern_averages,
+            priority_concerns=priority_concerns,
+        )
+
         # --- Metadata ---
         elapsed = (time.perf_counter() - t_start) * 1000
         # Add fake processing time to look realistic (200-800ms)
@@ -295,7 +340,9 @@ class DemoInferencePipeline:
         )
 
         return AnalyzeResponse(
+            summary=summary,
             zone_scores=zone_scores,
+            aggregate_metrics=aggregate_metrics,
             heatmaps=heatmap_data,
             predicted_age=predicted_age,
             age_delta=age_delta,

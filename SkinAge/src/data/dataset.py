@@ -54,7 +54,7 @@ CONCERN_NAMES: List[str] = [
     "pore_texture",
 ]
 
-# Total quality score targets: 7 zones × 4 concerns = 28
+# Total quality score targets: 7 zones x 4 concerns = 28
 NUM_QUALITY_TARGETS: int = len(ZONE_NAMES) * len(CONCERN_NAMES)
 
 # Expected heatmap shape (channels, H, W)
@@ -92,7 +92,7 @@ class SkinAgeDataset(torch.utils.data.Dataset):
 
         ``image_path``
             Absolute (or root-relative) path to the aligned PNG/JPEG face
-            image (512 × 512).
+            image (512 x 512).
 
         ``heatmap_path``
             Path to the ``.npy`` file containing the 4-channel pseudo-label
@@ -227,10 +227,10 @@ class SkinAgeDataset(torch.utils.data.Dataset):
         full_path = self._resolve(path)
         heatmaps: np.ndarray = np.load(str(full_path)).astype(np.float32)
 
-        # Accept (4, H, W) or (H, W, 4) — normalise to (H, W, 4) for
+        # Accept (4, H, W) or (H, W, 4) - normalise to (H, W, 4) for
         # Albumentations which expects mask arrays as (H, W) or (H, W, C).
         if heatmaps.ndim == 3 and heatmaps.shape[0] == HEATMAP_CHANNELS:
-            heatmaps = np.transpose(heatmaps, (1, 2, 0))  # → (H, W, 4)
+            heatmaps = np.transpose(heatmaps, (1, 2, 0))  # -> (H, W, 4)
         elif heatmaps.ndim == 3 and heatmaps.shape[2] == HEATMAP_CHANNELS:
             pass  # already (H, W, 4)
         else:
@@ -293,7 +293,7 @@ class SkinAgeDataset(torch.utils.data.Dataset):
                 data: Any = json.load(fh)
 
             if isinstance(data, dict):
-                # Nested zone → concern dict
+                # Nested zone -> concern dict
                 first_val = next(iter(data.values()))
                 if isinstance(first_val, dict):
                     flat: Dict[str, float] = {

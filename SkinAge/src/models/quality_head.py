@@ -6,7 +6,7 @@ global feature vector produced by the EfficientNet-B2 backbone.
 
 Architecture
 ------------
-    Linear(1408 → 512) → ReLU → Dropout(0.3) → Linear(512 → 28) → Sigmoid
+    Linear(1408 -> 512) -> ReLU -> Dropout(0.3) -> Linear(512 -> 28) -> Sigmoid
 
 Output range
 ------------
@@ -23,8 +23,8 @@ doing so would break the loss computation during training.
 
 Output ordering
 ---------------
-Zone-major flat ordering — all four concerns for zone 0 first, then zone 1,
-etc. — consistent with ``QUALITY_SCORE_COLUMNS`` in
+Zone-major flat ordering - all four concerns for zone 0 first, then zone 1,
+etc. - consistent with ``QUALITY_SCORE_COLUMNS`` in
 :mod:`src.data.dataset`:
 
     forehead_wrinkle, forehead_pigmentation, forehead_redness,
@@ -44,7 +44,7 @@ class QualityHead(nn.Module):
     ----------
     in_features : int
         Dimensionality of the input feature vector.  Must match the backbone's
-        output channel depth (EfficientNet-B2 → 1408).
+        output channel depth (EfficientNet-B2 -> 1408).
     hidden_dim : int
         Width of the intermediate fully-connected layer.
     num_zones : int
@@ -89,7 +89,7 @@ class QualityHead(nn.Module):
             nn.Dropout(p=dropout),
             # Output layer: one logit per zone-concern pair
             nn.Linear(hidden_dim, self.num_outputs),
-            # Sigmoid bounds each score to [0, 1] — matches normalised labels
+            # Sigmoid bounds each score to [0, 1] - matches normalised labels
             nn.Sigmoid(),
         )
 

@@ -1,5 +1,5 @@
 """
-Page 4 — Model Internals.
+Page 4 - Model Internals.
 
 Visualizations for model understanding and debugging:
     - Pseudo-label visualization (raw CV feature distributions)
@@ -138,7 +138,7 @@ def _score_distribution_section() -> None:
 
     if report is None:
         st.markdown(
-            f'<div class="skin-badge">Example visualization — synthetic data</div>',
+            f'<div class="skin-badge">Example visualization - synthetic data</div>',
             unsafe_allow_html=True,
         )
         np.random.seed(42)
@@ -200,7 +200,7 @@ def _correlation_matrix_section() -> None:
         matrix = np.array(report["correlation_matrix"])
     else:
         st.markdown(
-            f'<div class="skin-badge">Example visualization — synthetic data</div>',
+            f'<div class="skin-badge">Example visualization - synthetic data</div>',
             unsafe_allow_html=True,
         )
         np.random.seed(42)

@@ -2,7 +2,7 @@
 CIELAB color space utilities for skin-age estimation.
 
 Provides conversion between RGB and CIELAB color space, per-channel extraction,
-local standard deviation computation, and channel statistics — all building blocks
+local standard deviation computation, and channel statistics - all building blocks
 for texture and chromatic feature extraction from facial imagery.
 """
 
@@ -26,8 +26,8 @@ logger = logging.getLogger(__name__)
 #   b*  in [-127, 127] stored as uint8 [0, 255] via b_uint8 = b + 128
 # For float32 input cv2 expects values in [0, 1] and returns float CIELAB directly.
 
-_L_SCALE: float = 100.0 / 255.0  # uint8 L* channel → true L* [0, 100]
-_AB_OFFSET: float = 128.0         # uint8 a*/b* channel → true a*/b* [-128, 127]
+_L_SCALE: float = 100.0 / 255.0  # uint8 L* channel -> true L* [0, 100]
+_AB_OFFSET: float = 128.0         # uint8 a*/b* channel -> true a*/b* [-128, 127]
 
 
 # ---------------------------------------------------------------------------
@@ -68,14 +68,14 @@ def rgb_to_cielab(image: np.ndarray) -> np.ndarray:
             f"rgb_to_cielab expects uint8 input, got dtype {image.dtype}."
         )
 
-    # cv2.COLOR_RGB2LAB on uint8 maps L*→[0,255] and a*/b*→[0,255]
+    # cv2.COLOR_RGB2LAB on uint8 maps L*->[0,255] and a*/b*->[0,255]
     lab_uint8: np.ndarray = cv2.cvtColor(image, cv2.COLOR_RGB2LAB)
 
     # Recover true CIELAB floating-point values
     lab_float = lab_uint8.astype(np.float32)
-    lab_float[:, :, 0] *= _L_SCALE           # [0, 255] → [0, 100]
-    lab_float[:, :, 1] -= _AB_OFFSET         # [0, 255] → [−128, 127]
-    lab_float[:, :, 2] -= _AB_OFFSET         # [0, 255] → [−128, 127]
+    lab_float[:, :, 0] *= _L_SCALE           # [0, 255] -> [0, 100]
+    lab_float[:, :, 1] -= _AB_OFFSET         # [0, 255] -> [−128, 127]
+    lab_float[:, :, 2] -= _AB_OFFSET         # [0, 255] -> [−128, 127]
 
     return lab_float
 
@@ -114,9 +114,9 @@ def cielab_to_rgb(image: np.ndarray) -> np.ndarray:
 
     # Re-encode into cv2 uint8 CIELAB convention
     lab_uint8 = image.copy().astype(np.float32)
-    lab_uint8[:, :, 0] /= _L_SCALE           # [0, 100]  → [0, 255]
-    lab_uint8[:, :, 1] += _AB_OFFSET         # [−128, 127] → [0, 255]
-    lab_uint8[:, :, 2] += _AB_OFFSET         # [−128, 127] → [0, 255]
+    lab_uint8[:, :, 0] /= _L_SCALE           # [0, 100]  -> [0, 255]
+    lab_uint8[:, :, 1] += _AB_OFFSET         # [−128, 127] -> [0, 255]
+    lab_uint8[:, :, 2] += _AB_OFFSET         # [−128, 127] -> [0, 255]
 
     lab_uint8 = np.clip(lab_uint8, 0, 255).astype(np.uint8)
     rgb: np.ndarray = cv2.cvtColor(lab_uint8, cv2.COLOR_LAB2RGB)
@@ -145,7 +145,7 @@ def get_l_channel(image: np.ndarray) -> np.ndarray:
 
 
 def get_a_channel(image: np.ndarray) -> np.ndarray:
-    """Extract the a* (green–red) channel from an RGB uint8 image.
+    """Extract the a* (green-red) channel from an RGB uint8 image.
 
     Parameters
     ----------
@@ -161,7 +161,7 @@ def get_a_channel(image: np.ndarray) -> np.ndarray:
 
 
 def get_b_channel(image: np.ndarray) -> np.ndarray:
-    """Extract the b* (blue–yellow) channel from an RGB uint8 image.
+    """Extract the b* (blue-yellow) channel from an RGB uint8 image.
 
     Parameters
     ----------
